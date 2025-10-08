@@ -1,0 +1,59 @@
+# Governance
+
+Governance is the process by which \$AUDIO token holders enact change to the Open Audio Protocol through onchain proposals.
+
+Governance has the ability to control tokenomics of \$AUDIO, staking parameters, node software versions, and even modify the governance protocol itself.
+
+The governance system can be viewed in several places
+* Contract address on [etherscan](https://etherscan.io/address/0x4DEcA517D6817B6510798b7328F2314d3003AbAC#readProxyContract)
+* Audius [protocol dashboard](https://dashboard.audius.org/#/governance)
+* Official Graph Protocol [subgraph](https://thegraph.com/explorer/subgraphs/F8TjrYuTLohz64J8uuDke9htSR1aY9TGCuEjJVVjUJaD?view=Query&chain=arbitrum-one)
+
+## Proposals
+
+The governance proposal is intended to solicit community vote to modify onchain data stored in the governance system. Therefore, all governance proposals must act on chain data and lead to a specific outcome.
+
+Every governance proposals has the following parameters:
+
+| Parameter           | Description                                                    | Example                                 |
+|---------------------|----------------------------------------------------------------|-----------------------------------------|
+| `Proposer`          | The address that submitted the proposal                        | 0x683A...68d7                           |
+| `Name`              | The proposal's title                                           | Add validator node type                 |
+| `Description`       | The proposal's long-form description                           | This proposals ...                      |
+| `TargetContract`    | The english-name registry key entry for the contract to act on | ServiceTypeManagerProxy                 |
+| `FunctionSignature` | The method on the target contract to invoke                    | addServiceType(bytes32,uint256,unit256) |
+| `CallData`          | The proposal's long-form description                           | 0x76...,200000...,15000000...           |
+> The example proposal from this table can be viewed on the Audius [protocol dashboard](https://dashboard.audius.org/#/governance/proposal/156)
+
+Required software versions for the protocol are set by the governance system, in which case changelogs are typically used for proposal descriptions.
+
+
+
+## Process
+
+1. Forum post
+2. Proposal
+3. Discussion
+4. Voting
+5. Cooldown
+6. Execution
+
+A proposal has a 72 hour voting period once it is opened. After either passing or failing vote, the proposal stays inactive for 24 hours before it is able to be executed. Once the 24 hour cooldown is up, anyone can execute the proposal.
+
+Voting quorum is 5% of the total \$AUDIO staked to the network, and proposals pass with 50% of the majority.
+
+### Example
+
+Using this
+[governance proposal](https://dashboard.audius.org/#/governance/proposal/9) as an
+example, you can see that different node operators and delegators voted in favor of extending the
+voting time from 48 to 72 hours.
+
+Given that the total number of votes \(1 AUDIO, 1 vote\) was above the quorum requirement of ~11M
+\$AUDIO and the 50% majority \(100% voted in favor\) the proposal passed.
+
+In doing so, the changes
+[from this proposal](https://etherscan.io/tx/0xd4e14895b2a22b48469a43923ab7b30bee75f9a688941933430b3dae9510b8a6)
+were
+[executed through the governance contract](https://etherscan.io/tx/0x4396652fb9c1116cec5900f412608dfba7a3ec1b9967f4109a8ec3e09d3a75af),
+changing the voting window from 48 hours to 72 hours.

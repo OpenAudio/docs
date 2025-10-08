@@ -1,0 +1,122 @@
+# Artist Coins
+
+Meteora Bonding Curve Config: [aDBCdATdhH3381hLjHPUjcg3DqdQ5cE5ke9fZDV9zbw](https://solscan.io/account/aDBCdATdhH3381hLjHPUjcg3DqdQ5cE5ke9fZDV9zbw)
+<br />
+
+Artist Coins are the fan club experience of Audius + the Open Audio Protocol. Through launching an Aritst Coin, an artist is able to own the economy of their brand, earn revenue from attention, and organize and reward their fanbase. They are the fundamental piece of the Music Capital Market.
+
+## How coins work
+
+<img style={{'text-align':'center'}} alt='Artist Coins Flywheel' width='600' src='/artist-coins-flywheel.png' />
+
+The graphic above demonstrates the relationship between artists, fans, and $AUDIO.
+
+The purpose of the Artist Coins is to serve as the web3 fanclub for an artist. The [Super Fan](https://www.musicweek.com/labels/read/umg-investor-presentation-reveals-major-s-plans-for-superfans-and-streaming-growth/090486) is a well understood concept in the music industry, but common streaming platforms of today handicap the ability for an artist to tap into that economy. Artist Coins are therefore havily paired with utility out of the box: releasing music directly to coin holders (members), creating custom reward pools for ongoing campaigns, and providing a provable framework for applications to build social hubs on top of coin fundamentals.
+
+All Artist Coins are powered by Solana and Meteora's liquidity infrastructure. When an artist launches a coin, it is automatically created with a [Bonding Curve](https://www.coinbase.com/learn/advanced-trading/what-is-a-bonding-curve) quoted against \$AUDIO. This allows for instant trading, and also ensures a fair launch. Given the liqudity of $AUDIO in the Ethereum and Solana ecosystems, this immediately unlocks trading across many venues. Coins graduate to an [Automated Market Maker](https://www.coinbase.com/learn/advanced-trading/what-is-an-automated-market-maker-amm) when they reach a target market cap, creating a more open trading environment.
+
+Developer applications, like the [Audius launchpad](https://audius.co/coins) provide frontend experiences to launch coins, but as all the underlying tooling and infrastructure is open, any app can provide access to Artist Coins.
+
+
+## Tokenomics
+
+All Artist Coins follow the same framework so users know what to expect:
+
+* Bonding curve paired against $AUDIO
+* 1,000,000,000 total supply
+* Initial market cap of 10,000 $AUDIO
+* Graduation market cap of 1,000,000 $AUDIO
+* 50% of supply allocated to the artist, unlocking linearly over 5 years (starting from graduation):
+  * Artists can buy at launch, holding that back for themselves or allocating to fan reward pools
+  * Artists can shift a portion of allocation to fan reward pools
+* 25% of a coin's supply is sold through the curve to reach graduation
+* 25% of a coin's supply is moved to permanently locked liquidity in the AMM post-graduation
+* 1% trading fee on all coins earned in $AUDIO
+  * 50% of fees artists
+  * 50% of fees Audius community treasury
+
+
+## Maths
+
+The bonding curve config deployment shows the application of the above tokenomics.\
+[solscan link](https://solscan.io/tx/2FgMXPYkH8rKdc1VUmX7hUUxsai4EA3oWaYZ7AJnYr3Q4Zf8mnd1sVQhLXLGpSJWD3BgPNmjG47jiZW2aji6xp9J)
+
+Artist Coins follow a concave shape where liquidity
+
+<img style={{'text-align':'center'}} alt='Bonding Curve' width='600' src='/curve.png' />
+
+
+The math used to derive the bonding curve shape can be run via ipynb:
+https://gist.github.com/raymondjacobson/340d161513f26e96441e5b4f1e183b4a
+
+
+
+The exact sqrtPrice,Liquidity values used for the bonding curve design are:
+```json
+[
+  {
+    "sqrt_price": "49454822942198928",
+    "liquidity": "316151256542714767379182355742720"
+  },
+  {
+    "sqrt_price": "67463150367941992",
+    "liquidity": "1034142099640443506675420695101440"
+  },
+  {
+    "sqrt_price": "81589054430670160",
+    "liquidity": "1993482779222476007980168292335616"
+  },
+  {
+    "sqrt_price": "93607002666542880",
+    "liquidity": "3426004632472395272977352402927616"
+  },
+  {
+    "sqrt_price": "104248587969034256",
+    "liquidity": "5527075263389051486360336718626816"
+  },
+  {
+    "sqrt_price": "113900242488156192",
+    "liquidity": "8548850210158313829039805609017344"
+  },
+  {
+    "sqrt_price": "122795612235063552",
+    "liquidity": "12820672237426984956983602256543744"
+  },
+  {
+    "sqrt_price": "131088746769154048",
+    "liquidity": "18771222513185901677116104399388672"
+  },
+  {
+    "sqrt_price": "138887568467558320",
+    "liquidity": "26955439896665360498417791527813120"
+  },
+  {
+    "sqrt_price": "146271165374977472",
+    "liquidity": "38087728759187777947138400779763712"
+  },
+  {
+    "sqrt_price": "153299546527304896",
+    "liquidity": "53082960253944572826836697362726912"
+  },
+  {
+    "sqrt_price": "160019524155024992",
+    "liquidity": "73107000099851162532571430724304896"
+  },
+  {
+    "sqrt_price": "166468451233631424",
+    "liquidity": "99638821061952779942546313536602112"
+  },
+  {
+    "sqrt_price": "172676699069235264",
+    "liquidity": "134546659677401790102417975826972672"
+  },
+  {
+    "sqrt_price": "178669358164097472",
+    "liquidity": "180181158020974273473618784576077824"
+  },
+  {
+    "sqrt_price": "184467440737095520",
+    "liquidity": "239489003397306076375008380274606080"
+  }
+]
+```

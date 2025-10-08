@@ -1,0 +1,30 @@
+# Media Storage
+
+Media storage on the Open Audio Protocol elastically scales with usage.
+
+The underlying architecture, referred to Mediorum in code, is designed to be a flexible, fast, and secure.
+
+Every node is responsible for storing a share of the network, calculated from the total storage of all media files on the network, the replication factor, and the total number of validator nodes serving traffic.
+
+The total storage required for a set of media files per node can be calculated as:
+
+$$
+\text{storageCommitment} = \frac{S * R}{N}
+$$
+
+where:
+
+- $S$ = total storage required for all media files
+- $R$ = replication factor (number of copies each file is stored across the network)
+- $N$ = number of nodes in the network
+
+## How files are stored
+
+Mediorum uses [Rendezvous Hashing](https://en.wikipedia.org/wiki/Rendezvous_hashing) based on sha256 hashes of hostnames and content addressable identifiers to place content in a deterministic way across the network.
+
+[Repair] and [Reaper] processes monitor and resync catalog as the node list changes (new validators get registered, existing validators unstake, or replication factors change).
+
+
+## Storage proofs
+
+As file storage is deterministic, all nodes periodically attest to other's ability to serve content they are required to. These are known as storage proofs, and being unable to meet quota can lead to slashing.

@@ -1,0 +1,35 @@
+# Staking
+
+There are two ways to stake \$AUDIO:
+* Directly staking through the [Staking.sol](https://etherscan.io/address/0xe6D97B2099F142513be7A2a068bE040656Ae4591) contract by registering a `validator node`
+* Delegating \$AUDIO stake through the [DelegateManager.sol](https://etherscan.io/address/0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225) contract to an existing `validator` (node operator) of the protocol.
+
+This way, anyone can stake \$AUDIO, no matter how much or how little.
+
+\$AUDIO stakers earn a share of the protocol's 7% annual reward rate, distributed proportionally across all staked tokens. Rewards are claimable weekly and can be claimed by any staker or delegator, ensuring a fully permissionless process that prevents deadlocks.
+
+Staking is instant, while unstaking requires a 7-day cooldown, allowing governance proposals to complete before funds are withdrawn.
+
+## Direct Staking
+
+Operating a `validator node` requires a minimum stake of 200,000 \$AUDIO, with a maximum bond limit of 15,000,000 \$AUDIO per node. Stake is held at the `validator` account level and is spread across all nodes that they operate.
+
+For example, if a `validator` themselves is staking 400,000 \$AUDIO and receiving a delegation of 700,000 \$AUDIO, they may run between 1 and 5 nodes. If a `validator` is staking 1,000,001 \$AUDIO and receiving 14,000,000 in delegation, they must run at least 2 nodes.
+
+`Validators` choose the parameters to receive delegation:
+* The percentage fee of rewards they capture from all delegated \$AUDIO
+* The minimum amount of stake an individual party is permitted to delegate to them
+
+## Delegate Staking
+
+Users may wish to provide economic security to the protocol, but be unable to provide hardware directly themselves to operate a node. Therefore, they may choose to delegate stake to another existing validator on the network.
+
+Delegators must satisfy the minimum delegation amount set by their chosen validator and share in any reductions in stake resulting from slashing or penalties due to validator negligence.
+
+Delegator rewards are earned and claimed in the same transactions as when the validator they are staked to claims rewards.
+
+## Slashing
+
+Negligent validators whose nodes do not meet their obligations can be slashed. Slashing is performed through the [Governance](/concepts/governance) system after sufficient vote and tokens that are slashed are burned through the null address.
+
+Further details on automated mechanicsms can be read in the [Validators](/concepts/validators#sla-proofs) section.

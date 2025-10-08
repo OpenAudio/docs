@@ -1,0 +1,23 @@
+# Wire Protocol
+
+The Open Audio wire protocol is built on top of the [DDEX](https://ddex.net/standards/) standard, widely used across the music industry to distribute new music and report on usage. The Open Audio Protocol supplements the DDEX standard to include cryptographic primitives, like address keypairs and message signing, to make DDEX permissionless and usable on a decentralized system.
+
+The Open Audio Protocol implements the specification in protobuf. A reference implementation can be seen in [go-openaudio](https://github.com/AudiusProject/audiusd/tree/4247ba33d9d52e7d5d88d9a2d0d1a42e35665293/proto/ddex/v1beta1).
+
+Messages are received into a mempool via gossip and proposed in blocks by validator nodes on the `Core` module. When consensus is reached, data is committed to the validator's database where some data normalization may occur.
+
+## Specifications
+
+### ERN
+
+[DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) is the primary message type of the DDEX standard. It stands for Electronic Release Notification and contains all details around a release.
+
+
+### PIE
+
+[DDEX PIE](https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/) stands for Party Identification and Enrichment. This standard is used to augment party information with cryptographic signatures and account information.
+
+
+### MEAD
+
+[DDEX MEAD](https://kb.ddex.net/implementing-each-standard/media-enrichment-and-description-(mead)/) stands for Media Enrichment and Description and can be used to further extend release data that is shared through an ERN. For example, adding a `mood` to a track.

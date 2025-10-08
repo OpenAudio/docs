@@ -1,0 +1,41 @@
+# Validators
+
+Validators are the software infrastructure providers that keep the protocol running. They do this by running `validator nodes` in a connected network like many decentralized systems and blockchains.
+
+A full list of current validators can be seen on the [protocol explorer](https://explorer.audius.engineering/validators).
+
+To run a `validator node`, a minimum bond of 200,000 \$AUDIO is required to be put up as collateral. This earns the validator into a share of the protocol's 7% reward rate. In exchange, the validator is responsible for providing compute to handle its share of the protocol's traffic.
+
+Implementations:
+* go-openaudio: [code](https://github.com/openaudio/go-openaudio) [releases](https://hub.docker.com/r/openaudio/go-openaudio/tags)
+
+
+## Solana & Ethereum
+
+Under the hood, `validator nodes` are contextually aware of the Solana and Ethereum blockchains, which both provide underlying utility \$AUDIO. The node registration protocol currently lives on mainnet Ethereum.
+
+## Versioning
+
+The configuration for the `validator node` is managed through the [Service Type Manager](https://etherscan.io/address/0x9EfB0f4F38aFbb4b0984D00C126E97E21b8417C5) smart contract. The `validator node` software is versioned using Semver, whose versions are written into the onchain contract only through the Governance system after passing vote.
+
+## Software
+
+go-openaudio: [code](https://github.com/openaudio/go-openaudio) [releases](https://hub.docker.com/r/openaudio/go-openaudio/tags)
+
+### Core
+
+Core is the networking coordination layer between nodes, built on the [comet-bft](https://github.com/cometbft/cometbft) distributed state machine. It is used to keep `validator nodes` connected and in sync with each other. Core itself is not a blockchain in a traditional sense, but a byzantine fault-tolerant sync layer to coordinate metadata updates and streaming data. Its usage is very similar to that of [Celestia](https://celestia.org/) or role of comet-bft in the [Berachain](https://www.berachain.com/) project.
+
+
+### Mediorum
+
+Mediorum is the file storage system that underpins all media (resources) stored on the protocol. Mediorum accepts file uploads, validates their contents, transcodes content into streamable artifacts, and provides content-addressable identifiers for files using the [go-cid](github.com/ipfs/go-cid) library from [IPFS](https://github.com/ipfs).
+
+
+### SLA Proofs
+`validator nodes` constantly police each other, determining whether they are satisfactorily serving their individual duty. All nodes can both propose when other nodes violate their commitments to the network and also provide attestations to other nodes when asked. The Uptime and Proof of Storage packages are what enforce the slashing components of the staking system.
+
+
+### Rewards
+
+The rewards module provides a system for `validator nodes` to attest to authority over rewards pools on mainnet blockchains like Solana, and distribute token supply to users (\$AUDIO or artist coins). Apps and users can deposit coins into reward pools that are then managed by the decentralized Open Audio Protocol.
