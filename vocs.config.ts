@@ -7,6 +7,10 @@ export default defineConfig({
   aiCta: true,
   title: 'Docs',
   iconUrl: '/favicon.png',
+  ogImageUrl: {
+    '/': 'og-docs.png',
+    '/blog': 'og-blog.png'
+  },
   logoUrl: {
     light: '/logo-light.svg',
     dark: '/logo-dark.svg',
