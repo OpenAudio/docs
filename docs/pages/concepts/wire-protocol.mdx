@@ -2,7 +2,7 @@
 
 The Open Audio wire protocol is built on top of the [DDEX](https://ddex.net/standards/) standard, widely used across the music industry to distribute new music and report on usage. The Open Audio Protocol supplements the DDEX standard to include cryptographic primitives, like address keypairs and message signing, to make DDEX permissionless and usable on a decentralized system.
 
-The Open Audio Protocol implements the specification in protobuf. A reference implementation can be seen in [go-openaudio](https://github.com/AudiusProject/audiusd/tree/4247ba33d9d52e7d5d88d9a2d0d1a42e35665293/proto/ddex/v1beta1).
+The Open Audio Protocol implements the specification in protobuf. A reference implementation can be seen in [ddex-proto](https://github.com/OpenAudio/ddex-proto) and published to the [Buf Registry](https://buf.build/openaudio/ddex).
 
 Messages are received into a mempool via gossip and proposed in blocks by validator nodes on the `Core` module. When consensus is reached, data is committed to the validator's database where some data normalization may occur.
 
@@ -10,14 +10,100 @@ Messages are received into a mempool via gossip and proposed in blocks by valida
 
 ### ERN
 
-[DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) is the primary message type of the DDEX standard. It stands for Electronic Release Notification and contains all details around a release.
+[DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) is the primary message type of the DDEX standard. It stands for Electronic Release Notification and contains all details around a release. They include four top level entities:
 
+1. **Party**: Related parties to the release, these are artists, collaborators, sound engineers, writers, etc.
+2. **Resource**: Low level artifacts that are used to compose a release. Information about media files, album art, bitrate, file format, etc.
+3. **Release**: A composition of the parties, resources, and the deals. This is typically the entity that surfaces on a platform such as the Audius app.
+4. **Deal**: Information detailing how the release can be used. When the release becomes available. What types of ways can users gain access to the release.
 
-### PIE
+The OAP implementation of an ERN does not stray from the initial definition. The messages are stateless so that means that entities nested inside the ERN can be duplicated across records. It is up to Apps, Indexers, and Views to reconcile a single entity by each message type's ID. This is to preserve the original intent of the ERN. 
 
-[DDEX PIE](https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/) stands for Party Identification and Enrichment. This standard is used to augment party information with cryptographic signatures and account information.
+#### XML to Protobuf Demonstration
+
+The example below demonstrates how an existing ERN, typically expressed in XML, would be shaped to fit the OAP transaction types.
+
+##### XML Format
+
+```xml
+<ernm:Party xmlns:ernm="http://ddex.net/xml/ern/43">
+    <ernm:PartyReference>P123456789</ernm:PartyReference>
+    <ernm:PartyName>
+        <ernm:FullName>Example Artist</ernm:FullName>
+    </ernm:PartyName>
+    <ernm:PartyId>
+        <ernm:ProprietaryId Namespace="OAP">
+            0x742d35cc6634C0532925a3b8D2c1c2F78E2c7aB2
+        </ernm:ProprietaryId>
+    </ernm:PartyId>
+    <ernm:Role>Artist</ernm:Role>
+</ernm:Party>
+
+```
+
+##### Protobuf Format
+
+```go
+message ProprietaryId {
+  string namespace = 1;
+  string value = 2;
+}
+
+message PartyId {
+  oneof id_type {
+    ProprietaryId proprietary_id = 1;
+  }
+}
+
+message Party {
+  string party_reference = 1;
+  string full_name = 2;
+  repeated PartyId party_ids = 3;
+  repeated string roles = 4;
+}
+
+```
+
+##### Protobuf Instance Example
+
+```go
+party := &Party{
+    PartyReference: "P123456789",
+    FullName: "Example Artist",
+    PartyIds: []*PartyId{{
+        IdType: &PartyId_ProprietaryId{
+            ProprietaryId: &ProprietaryId{
+                Namespace: "OAP",
+                Value: "0x742d35cc6634C0532925a3b8D2c1c2F78E2c7aB2",
+            },
+        },
+    }},
+    Roles: []string{"Artist"},
+}
+
+```
 
 
 ### MEAD
 
 [DDEX MEAD](https://kb.ddex.net/implementing-each-standard/media-enrichment-and-description-(mead)/) stands for Media Enrichment and Description and can be used to further extend release data that is shared through an ERN. For example, adding a `mood` to a track.
+
+Unlike ERNs which establish the core structure of a release, MEADs allow for ongoing enrichment of that data. They can include extended descriptions, additional genre tags, mood classifications, promotional text, and other descriptive metadata that enhances discoverability and presentation.
+
+The OAP implementation of MEAD leverages the decentralized nature of the protocol. Any party can submit MEAD messages to enrich metadata for any release on the network. This creates a collaborative tagging and enrichment system where fans, curators, distributors, and other stakeholders can contribute metadata. The chain stores all submitted MEADs, but it's up to indexers and client applications to decide which MEADs to trust and display.
+
+This trust model allows for flexible curation strategies. An indexer might only surface MEADs from verified artists, established music databases, or curated lists of trusted contributors. Alternatively, they might implement reputation systems or community voting mechanisms to surface the most valuable enrichment data.
+
+Like ERNs, MEADs are stateless messages. Multiple MEAD submissions for the same release create multiple records rather than updating existing ones. This preserves the full history of metadata enrichment while allowing consumers to apply their own filtering and selection logic.
+
+### PIE
+
+[DDEX PIE](https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/) stands for Party Identification and Enrichment. This standard is used to augment party information with cryptographic signatures and account information. PIEs allow for broader party profiles that can be referenced across multiple releases and contexts.
+
+PIE messages can include social media handles, biographical information, additional identifiers from various music databases, contact information, and other party-specific metadata. This creates a distributed identity system where parties can be enriched with information from multiple sources over time.
+
+Similar to MEADs, any address can submit PIE messages about any party. This enables a crowdsourced approach to party identification where fans, industry professionals, and automated systems can contribute identifying information. The same trust considerations apply - indexers and applications must decide which PIE submissions to consider authoritative.
+
+The decentralized PIE system addresses a common problem in music metadata: the lack of canonical party identification across different platforms and databases. By allowing multiple identification schemes and enrichment sources, OAP creates a more complete picture of music industry participants while maintaining the flexibility for different consumers to apply their own trust and verification standards.
+
+PIEs also support the cross-referencing of parties across different blockchain addresses, social media accounts, and traditional music industry identifiers, creating a more connected and discoverable ecosystem.
