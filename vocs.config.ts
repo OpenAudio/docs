@@ -127,9 +127,6 @@ export default defineConfig({
       dark: "#fff"
     },
     variables: {
-      content: {
-        width: 'clamp(900px, 70vw, 1800px)',
-      },
       color: {
         background: {
           light: "#fff",
