@@ -137,8 +137,8 @@ The network validates that the signature matches the signer address in the heade
 [DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) (Electronic Release Notification) is the primary message type in DDEX. It contains all the details around a release across four top-level entities:
 
 1. **Party**: Artists, collaborators, sound engineers, writers, and other contributors to the release.
-2. **Resource**: Media files, album art, bitrate, file format, and other low-level artifacts.
-3. **Release**: The composition of parties, resources, and deals. This is what surfaces as an album or single on platforms.
+2. **Resource**: Media files, album art, bitrate, file format, and other low-level artifacts. Contains the CID that is uploaded through the storage protocol.
+3. **Release**: The composition of parties, resources, and deals. This is what surfaces as an album, EP, or single on apps.
 4. **Deal**: Usage rights, availability windows, and how users can access the release.
 
 ERN messages are stateless, meaning entities can be duplicated across records. Apps and indexers reconcile duplicates by ID to preserve the original DDEX intent.
