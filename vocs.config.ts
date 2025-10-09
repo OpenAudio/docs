@@ -123,7 +123,7 @@ export default defineConfig({
     },
     variables: {
       content: {
-        width: 'clamp(900px, 65vw, 1400px)',
+        width: 'clamp(900px, 70vw, 1800px)',
       },
       color: {
         background: {

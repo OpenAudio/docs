@@ -2,11 +2,11 @@
 
 The Open Audio wire protocol is built on [DDEX](https://ddex.net/standards/), a widely-used music industry standard for distributing release information and reporting usage. OAP extends DDEX with cryptographic primitives like address keypairs and message signing to enable permissionless operation on a decentralized network.
 
-The protocol is implemented in protobuf via [ddex-proto](https://github.com/OpenAudio/ddex-proto) and published to the [Buf Registry](https://buf.build/openaudio/ddex). Messages flow through a mempool via gossip, are proposed in blocks by validators, and committed to the chain after consensus.
+The protocol is implemented in protobuf via [ddex-proto](https://github.com/OpenAudio/ddex-proto) and published to the [Buf Registry](https://buf.build/openaudio/ddex). Messages flow through node's rpc, broadcasted via gossip, are proposed in blocks by validators, and committed to the chain after consensus.
 
 ## Transaction Structure
 
-All messages on OAP are wrapped in a blockchain transaction envelope that includes chain metadata and cryptographic signatures. The `SignedTransaction` contains the serialized `Transaction` payload and its signature. The transaction header includes chain ID, nonce, gas parameters, and the signer's address. The body uses a oneof field to support different message types.
+All messages on OAP are wrapped in a transaction envelope that includes chain metadata and a signature provided by the sender. The `SignedTransaction` contains the serialized `Transaction` payload and it's accompanying signature. The transaction header includes chain ID, nonce, gas parameters, and the signer's address. The body uses a oneof field to support different message types.
 
 ```protobuf
 message SignedTransaction {
@@ -71,11 +71,15 @@ The transaction header's `signer` field identifies who is submitting the message
 import (
     "crypto/ecdsa"
     "github.com/OpenAudio/go-openaudio/chain"
+    "github.com/OpenAudio/go-openaudio/pkg/common"
     "github.com/OpenAudio/ddex-proto/gen/ddex/ern/v43"
     "google.golang.org/protobuf/proto"
 )
 
 func signAndSend(privateKey *ecdsa.PrivateKey, ernMessage *v43.NewReleaseMessage) error {
+    // Derive the signer address from the private key
+    signerAddress := common.PrivKeyToAddress(privateKey)
+
     // Create the transaction
     tx := &chain.Transaction{
         Header: &chain.Header{
@@ -84,7 +88,7 @@ func signAndSend(privateKey *ecdsa.PrivateKey, ernMessage *v43.NewReleaseMessage
             GasLimit:       1000000,
             GasPrice:       100,
             DeadlineHeight: 12345,
-            Signer:         "0x742d35cc6634C0532925a3b8D2c1c2F78E2c7aB2",
+            Signer:         signerAddress,
         },
         Body: &chain.Body{
             Action: &chain.Body_Ern{
@@ -104,7 +108,10 @@ func signAndSend(privateKey *ecdsa.PrivateKey, ernMessage *v43.NewReleaseMessage
     }
 
     // Sign the payload with your private key
-    signature := signPayload(privateKey, payload)
+    signature, err := common.EthSign(privateKey, payload)
+    if err != nil {
+        return err
+    }
 
     // Create the signed transaction
     signedTx := &chain.SignedTransaction{
@@ -112,18 +119,13 @@ func signAndSend(privateKey *ecdsa.PrivateKey, ernMessage *v43.NewReleaseMessage
         Signature: signature,
     }
 
-    // Submit to the network
+    // Submit to the network via RPC or gossip
     return submitTransaction(signedTx)
-}
-
-func signPayload(privateKey *ecdsa.PrivateKey, payload []byte) []byte {
-    // Implementation depends on your signing scheme (e.g., ECDSA)
-    // Hash the payload and sign it
-    // Return the signature bytes
 }
 
 func submitTransaction(signedTx *chain.SignedTransaction) error {
     // Send to mempool via RPC or gossip
+    // Implementation depends on your network configuration
 }
 ```
 
