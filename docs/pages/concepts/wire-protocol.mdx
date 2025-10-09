@@ -251,15 +251,15 @@ message Party {
 
 ## Go Example
 
-Here's how to use the generated Go libraries to create messages for Green Day's "American Idiot":
+Here's how to use the generated Go libraries to create messages for Durante's "[Enter](https://audius.co/ImDurante/album/enter)":
 
 ### ERN Message
 
-ERN messages define entities separately and link them together with references. In this example, we create four sound recordings that get packaged into two different releases: a single containing just the title track, and a full album containing all four tracks. The same "American Idiot" recording appears in both releases without duplication.
+ERN messages define entities separately and link them together with references. In this example, we create four sound recordings from the 13-track album that get packaged into two different releases: a single containing just one track, and the full album containing all four tracks shown here. We also include an image resource for the album art.
 
 Each entity gets a reference ID (like `party-550e8400...` or `track-550e8400...`) that other entities use to link to it. These references are scoped to the message itself. The `ResourceGroup` on each release specifies which tracks to include and in what order by referencing the sound recordings.
 
-The `ProprietaryId` with namespace "OAP" is where blockchain addresses come in. This links Green Day's party to an on-chain address, enabling decentralized ownership verification and message signing. Traditional DDEX uses industry identifiers like ISNI as well. While anyone can claim to be Green Day with any address, indexers and views verify message signatures on OAP to identify false claims and determine which parties are legitimate.
+The `ProprietaryId` with namespace "OpenAudio" is where blockchain addresses come in. This links Durante's party to an on-chain address, enabling decentralized ownership verification and message signing. Traditional DDEX uses industry identifiers like ISNI as well. While anyone can claim to be Durante with any address, indexers and views verify message signatures on OAP to identify false claims and determine which parties are legitimate.
 
 ```go
 package main
@@ -270,62 +270,71 @@ import (
 
 func main() {
     // Define the artist
-    greenDay := &v43.Party{
+    durante := &v43.Party{
         PartyReference: "party-550e8400-e29b-41d4-a716-446655440001",
         PartyName: []*v43.PartyNameWithTerritory{{
-            FullName: &v43.Name{Value: "Green Day"},
+            FullName: &v43.Name{Value: "Durante"},
         }},
         PartyId: []*v43.DetailedPartyId{{
             ProprietaryId: []*v43.ProprietaryId{{
-                Namespace: "OAP",
+                Namespace: "OpenAudio",
                 Value:     "0x742d35cc6634C0532925a3b8D2c1c2F78E2c7aB2",
             }},
         }},
     }
 
+    // Define album art
+    albumArt := &v43.Image{
+        ResourceReference: "image-550e8400-e29b-41d4-a716-446655440020",
+        ImageType: "FrontCoverImage",
+        ImageCodecType: &v43.ImageCodecType{Value: "JPEG"},
+        ImageHeight: 3000,
+        ImageWidth:  3000,
+    }
+
     // Define sound recordings for the album
-    americanIdiot := &v43.SoundRecording{
+    lmk := &v43.SoundRecording{
         ResourceReference: "track-550e8400-e29b-41d4-a716-446655440010",
         DisplayTitleText: []*v43.DisplayTitleText{{
-            Value: "American Idiot",
+            Value: "LMK feat. CRi",
         }},
-        Duration: &v43.Duration{Value: "PT2M54S"},
+        Duration: &v43.Duration{Value: "PT3M53S"},
     }
 
-    jesusOfSuburbia := &v43.SoundRecording{
+    holdingOn := &v43.SoundRecording{
         ResourceReference: "track-550e8400-e29b-41d4-a716-446655440011",
         DisplayTitleText: []*v43.DisplayTitleText{{
-            Value: "Jesus of Suburbia",
+            Value: "Holding On feat. Nathan Nicholson",
         }},
-        Duration: &v43.Duration{Value: "PT9M8S"},
+        Duration: &v43.Duration{Value: "PT3M58S"},
     }
 
-    holiday := &v43.SoundRecording{
+    opalescent := &v43.SoundRecording{
         ResourceReference: "track-550e8400-e29b-41d4-a716-446655440012",
         DisplayTitleText: []*v43.DisplayTitleText{{
-            Value: "Holiday",
+            Value: "Opalescent",
         }},
-        Duration: &v43.Duration{Value: "PT3M52S"},
+        Duration: &v43.Duration{Value: "PT4M8S"},
     }
 
-    boulevard := &v43.SoundRecording{
+    remedy := &v43.SoundRecording{
         ResourceReference: "track-550e8400-e29b-41d4-a716-446655440013",
         DisplayTitleText: []*v43.DisplayTitleText{{
-            Value: "Boulevard of Broken Dreams",
+            Value: "Remedy feat. Running Touch",
         }},
-        Duration: &v43.Duration{Value: "PT4M20S"},
+        Duration: &v43.Duration{Value: "PT3M45S"},
     }
 
-    // Single release - references only the title track
+    // Single release - references only one track
     single := &v43.Release{
         ReleaseReference: "release-550e8400-e29b-41d4-a716-446655440100",
         ReleaseId: &v43.ReleaseId{
-            Icpn: "0093624862123",
+            Icpn: "5060236639691",
         },
         DisplayTitleText: []*v43.DisplayTitleText{{
-            Value: "American Idiot",
+            Value: "LMK",
         }},
-        ReleaseDate: "2004-08-06",
+        ReleaseDate: "2024-04-05",
         ResourceGroup: &v43.ResourceGroup{
             ResourceGroupContentItem: []*v43.ResourceGroupContentItem{{
                 SequenceNumber:          1,
@@ -334,16 +343,20 @@ func main() {
         },
     }
 
-    // Album release - references all tracks in order
+    // Album release - references all tracks and album art
     album := &v43.Release{
         ReleaseReference: "release-550e8400-e29b-41d4-a716-446655440101",
         ReleaseId: &v43.ReleaseId{
-            Icpn: "0093624946069",
+            Icpn: "5060236639691",
         },
         DisplayTitleText: []*v43.DisplayTitleText{{
-            Value: "American Idiot",
+            Value: "Enter",
         }},
-        ReleaseDate: "2004-09-21",
+        ReleaseDate: "2024-04-05",
+        PLine: &v43.PLineWithDefault{{
+            Year: "2024",
+            PLineText: "Anjunadeep",
+        }},
         ResourceGroup: &v43.ResourceGroup{
             ResourceGroupContentItem: []*v43.ResourceGroupContentItem{
                 {
@@ -364,20 +377,24 @@ func main() {
                 },
             },
         },
+        ReleaseResourceReferenceList: &v43.ReleaseResourceReferenceList{
+            ReleaseResourceReference: []string{"image-550e8400-e29b-41d4-a716-446655440020"},
+        },
     }
 
     // Compose the ERN message
     ern := &v43.NewReleaseMessage{
         PartyList: &v43.PartyList{
-            Party: []*v43.Party{greenDay},
+            Party: []*v43.Party{durante},
         },
         ResourceList: &v43.ResourceList{
             SoundRecording: []*v43.SoundRecording{
-                americanIdiot,
-                jesusOfSuburbia,
-                holiday,
-                boulevard,
+                lmk,
+                holdingOn,
+                opalescent,
+                remedy,
             },
+            Image: []*v43.Image{albumArt},
         },
         ReleaseList: &v43.ReleaseList{
             Release: []*v43.Release{single, album},
@@ -402,19 +419,19 @@ func enrichTrack() {
                 ResourceSummary: &v11.ResourceSummary{
                     ResourceId: &v11.ResourceIdWithoutFlag{
                         ProprietaryId: []*v11.ProprietaryId{{
-                            Namespace: "OAP",
+                            Namespace: "OpenAudio",
                             Value:     "track-550e8400-e29b-41d4-a716-446655440010",
                         }},
                     },
                 },
                 Mood: []*v11.Mood{{
-                    Value: &v11.MoodValue{Value: "Aggressive"},
+                    Value: &v11.MoodValue{Value: "Ethereal"},
                 }},
                 GenreCategory: []*v11.GenreCategory{{
-                    Value: &v11.GenreCategoryValue{Value: "Punk Rock"},
+                    Value: &v11.GenreCategoryValue{Value: "Progressive House"},
                 }},
                 Theme: []*v11.Theme{{
-                    Value: &v11.ThemeValue{Value: "Political"},
+                    Value: &v11.ThemeValue{Value: "Atmospheric"},
                 }},
             }},
         },
@@ -424,7 +441,7 @@ func enrichTrack() {
 
 ### PIE Message
 
-Enrich Green Day's party profile with biographical information and social links:
+Enrich Durante's party profile with biographical information and social links:
 
 ```go
 import (
@@ -438,16 +455,16 @@ func enrichParty() {
                 PartyReference: "party-550e8400-e29b-41d4-a716-446655440001",
                 PartyName: []*v10.PartyName{{
                     FullName: &v10.NameWithScriptCode{
-                        Name: &v10.Name{Value: "Green Day"},
+                        Name: &v10.Name{Value: "Durante"},
                     },
                 }},
                 Biography: []*v10.Biography{{
                     Text: []*v10.BiographyText{{
-                        Value: "Green Day is an American punk rock band formed in 1987.",
+                        Value: "Durante is an American electronic music producer and DJ, known for his melodic progressive house sound. After 18 years of musical journey, he released his debut album 'Enter' on Anjunadeep in 2024.",
                     }},
                 }},
                 SocialMediaUrl: &v10.SocialMediaURL{
-                    Value: "https://twitter.com/GreenDay",
+                    Value: "https://www.instagram.com/imdurante",
                 },
             }},
         },
