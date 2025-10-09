@@ -11,25 +11,25 @@ export default defineConfig({
     light: '/logo-light.svg',
     dark: '/logo-dark.svg',
   },
-  topNav: [ 
-    { text: 'Docs', link: '/'}, 
+  topNav: [
+    { text: 'Docs', link: '/' },
     { text: 'Blog', link: '/blog' },
-    { text: 'openaudio.org', link: 'https://openaudio.org' }, 
+    { text: 'openaudio.org', link: 'https://openaudio.org' },
   ],
   markdown: {
     remarkPlugins: [remarkMath],
     rehypePlugins: [rehypeKatex, rehypeMermaid],
   },
   description: "Docs for the Open Audio Protocol",
-  socials: [ 
-    { 
-      icon: 'github', 
-      link: 'https://github.com/OpenAudio', 
-    }, 
-    { 
-      icon: 'x', 
-      link: 'https://twitter.com/OpenAudioProto', 
-    }, 
+  socials: [
+    {
+      icon: 'github',
+      link: 'https://github.com/OpenAudio',
+    },
+    {
+      icon: 'x',
+      link: 'https://twitter.com/OpenAudioProto',
+    },
   ],
   sidebar: [
     {
@@ -118,10 +118,13 @@ export default defineConfig({
   ],
   theme: {
     accentColor: {
-      light: '#000', 
+      light: '#000',
       dark: "#fff"
     },
     variables: {
+      content: {
+        width: 'clamp(900px, 65vw, 1400px)',
+      },
       color: {
         background: {
           light: "#fff",
@@ -137,5 +140,5 @@ export default defineConfig({
         }
       }
     }
-  }, 
+  },
 })
