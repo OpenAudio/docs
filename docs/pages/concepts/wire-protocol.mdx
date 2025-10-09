@@ -2,24 +2,473 @@
 
 # Wire Protocol
 
-The Open Audio wire protocol is built on top of the [DDEX](https://ddex.net/standards/) standard, widely used across the music industry to distribute new music and report on usage. The Open Audio Protocol supplements the DDEX standard to include cryptographic primitives, like address keypairs and message signing, to make DDEX permissionless and usable on a decentralized system.
+The Open Audio wire protocol is built on [DDEX](https://ddex.net/standards/), a widely-used music industry standard for distributing release information and reporting usage. OAP extends DDEX with cryptographic primitives like address keypairs and message signing to enable permissionless operation on a decentralized network.
 
-The Open Audio Protocol implements the specification in protobuf. A reference implementation can be seen in [go-openaudio](https://github.com/AudiusProject/audiusd/tree/4247ba33d9d52e7d5d88d9a2d0d1a42e35665293/proto/ddex/v1beta1).
+The protocol is implemented in protobuf via [ddex-proto](https://github.com/OpenAudio/ddex-proto) and published to the [Buf Registry](https://buf.build/openaudio/ddex). Messages flow through node's rpc, broadcasted via gossip, are proposed in blocks by validators, and committed to the chain after consensus.
 
-Messages are received into a mempool via gossip and proposed in blocks by validator nodes on the `Core` module. When consensus is reached, data is committed to the validator's database where some data normalization may occur.
+## Transaction Structure
 
-## Specifications
+All messages on OAP are wrapped in a transaction envelope that includes chain metadata and a signature provided by the sender. The `SignedTransaction` contains the serialized `Transaction` payload and it's accompanying signature. The transaction header includes chain ID, nonce, gas parameters, and the signer's address. The body uses a oneof field to support different message types.
+
+```protobuf
+message SignedTransaction {
+  bytes payload = 1;
+  bytes signature = 2;
+}
+
+message Transaction {
+  Header header = 1;
+  Body body = 2;
+  Footer footer = 3;
+}
+
+message Header {
+  uint64 chain_id = 1;
+  uint64 nonce = 2;
+  uint64 gas_limit = 3;
+  uint64 gas_price = 4;
+  uint64 deadline_height = 5;
+  string signer = 6;
+}
+
+message Body {
+  oneof action {
+    ElectronicReleaseNotification ern = 1;
+    PartyIdentificationAndEnrichment pie = 2;
+    MediaEnrichmentAndDescription mead = 3;
+    // Additional message types can be added here
+  }
+}
+
+message ElectronicReleaseNotification {
+  oneof msg {
+    ddex.ern.v381.NewReleaseMessage v381 = 1;
+    ddex.ern.v383.NewReleaseMessage v383 = 2;
+    ddex.ern.v42.NewReleaseMessage v42 = 3;
+    ddex.ern.v43.NewReleaseMessage v43 = 4;
+    ddex.ern.v432.NewReleaseMessage v432 = 5;
+  }
+}
+
+message PartyIdentificationAndEnrichment {
+  oneof msg {
+    ddex.pie.v10.PieMessage v10 = 1;
+  }
+}
+
+message MediaEnrichmentAndDescription {
+  oneof msg {
+    ddex.mead.v11.MeadMessage v11 = 1;
+  }
+}
+```
+
+OAP accepts multiple DDEX specification versions and stores the protobuf messages as submitted. Indexers and applications can choose how to interpret and normalize the data for their use cases.
+
+### Signing and Sending
+
+The transaction header's `signer` field identifies who is submitting the message. This is how OAP determines ownership and verifies that the party submitting a release or enrichment is authorized to do so. Here's how to construct, sign, and send a transaction:
+
+```go
+import (
+    "crypto/ecdsa"
+    "github.com/OpenAudio/go-openaudio/chain"
+    "github.com/OpenAudio/go-openaudio/pkg/common"
+    "github.com/OpenAudio/ddex-proto/gen/ddex/ern/v43"
+    "google.golang.org/protobuf/proto"
+)
+
+func signAndSend(privateKey *ecdsa.PrivateKey, ernMessage *v43.NewReleaseMessage) error {
+    // Derive the signer address from the private key
+    signerAddress := common.PrivKeyToAddress(privateKey)
+
+    // Create the transaction
+    tx := &chain.Transaction{
+        Header: &chain.Header{
+            ChainId:        1,
+            Nonce:          1,
+            GasLimit:       1000000,
+            GasPrice:       100,
+            DeadlineHeight: 12345,
+            Signer:         signerAddress,
+        },
+        Body: &chain.Body{
+            Action: &chain.Body_Ern{
+                Ern: &chain.ElectronicReleaseNotification{
+                    Msg: &chain.ElectronicReleaseNotification_V43{
+                        V43: ernMessage,
+                    },
+                },
+            },
+        },
+    }
+
+    // Serialize the transaction to get the payload
+    payload, err := proto.Marshal(tx)
+    if err != nil {
+        return err
+    }
+
+    // Sign the payload with your private key
+    signature, err := common.EthSign(privateKey, payload)
+    if err != nil {
+        return err
+    }
+
+    // Create the signed transaction
+    signedTx := &chain.SignedTransaction{
+        Payload:   payload,
+        Signature: signature,
+    }
+
+    // Submit to the network via RPC or gossip
+    return submitTransaction(signedTx)
+}
+
+func submitTransaction(signedTx *chain.SignedTransaction) error {
+  // send to RPC
+}
+```
+
+The network validates that the signature matches the signer address in the header. This cryptographic proof is what makes OAP permissionless while still maintaining identity verification.
+
+## DDEX Message Types
 
 ### ERN
 
-[DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) is the primary message type of the DDEX standard. It stands for Electronic Release Notification and contains all details around a release.
+[DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) (Electronic Release Notification) is the primary message type in DDEX. It contains all the details around a release across four top-level entities:
 
+1. **Party**: Artists, collaborators, sound engineers, writers, and other contributors to the release.
+2. **Resource**: Media files, album art, bitrate, file format, and other low-level artifacts. Contains the CID that is uploaded through the storage protocol.
+3. **Release**: The composition of parties, resources, and deals. This is what surfaces as an album, EP, or single on apps.
+4. **Deal**: Usage rights, availability windows, and how users can access the release.
 
-### PIE
+ERN messages are stateless, meaning entities can be duplicated across records. Apps and indexers reconcile duplicates by ID to preserve the original DDEX intent.
 
-[DDEX PIE](https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/) stands for Party Identification and Enrichment. This standard is used to augment party information with cryptographic signatures and account information.
+**Protobuf structure from [ddex-proto](https://github.com/OpenAudio/ddex-proto/blob/main/proto/ddex/ern/v43/v43.proto)**:
 
+```protobuf
+message NewReleaseMessage {
+  MessageHeader message_header = 1;
+  repeated ReleaseAdmin release_admin = 2;
+  PartyList party_list = 3;
+  ResourceList resource_list = 5;
+  ReleaseList release_list = 7;
+  DealList deal_list = 8;
+}
+
+message Party {
+  string party_reference = 1;
+  repeated DetailedPartyId party_id = 5;
+  repeated PartyNameWithTerritory party_name = 6;
+}
+
+message ResourceList {
+  repeated SoundRecording sound_recording = 1;
+  repeated Video video = 2;
+  repeated Image image = 3;
+}
+
+message Release {
+  string release_reference = 1;
+  repeated ReleaseTypeForReleaseNotification release_type = 2;
+  ReleaseId release_id = 3;
+  repeated DisplayTitle display_title = 5;
+}
+
+message Deal {
+  repeated string deal_reference = 1;
+  DealTerms deal_terms = 3;
+}
+```
+
+#### Resources
+
+Resources represent the individual assets that make up a release. A `SoundRecording` is an audio track with metadata like duration, ISRC codes, and contributor information. Resources can also include videos, images (album art), text (liner notes), and sheet music. Each resource gets a unique reference ID that releases use to compose their tracklists.
+
+#### Releases
+
+A release ties everything together. It references the parties involved, lists the resources (tracks) in order, and includes metadata like release date, label, and catalog number. The same set of sound recordings might appear in multiple releases. For example, "American Idiot" appears both as a single and as track 1 on the full album.
+
+#### Deals
+
+Deals define how a release can be distributed and consumed. They specify territories, usage types (streaming, download, physical), price tiers, and availability windows. A single release might have multiple deals for different regions or platforms.
 
 ### MEAD
 
-[DDEX MEAD](https://kb.ddex.net/implementing-each-standard/media-enrichment-and-description-(mead)/) stands for Media Enrichment and Description and can be used to further extend release data that is shared through an ERN. For example, adding a `mood` to a track.
+[DDEX MEAD](https://kb.ddex.net/implementing-each-standard/media-enrichment-and-description-(mead)/) (Media Enrichment and Description) extends release metadata with additional descriptive information. While ERNs establish the core structure of a release, MEADs allow ongoing enrichment with things like mood classifications, extended genre tags, promotional text, and other metadata that enhances discoverability.
+
+OAP's implementation leverages the protocol's decentralized nature. Any party can submit MEAD messages to enrich metadata for any release on the network. This creates a collaborative tagging system where fans, curators, and distributors can all contribute. The chain stores all submitted MEADs, but indexers decide which to trust and display.
+
+This trust model enables flexible curation strategies. An indexer might only surface MEADs from verified artists, established music databases, or curated contributor lists. Or they could implement reputation systems and community voting to surface the most valuable enrichment data.
+
+Like ERNs, MEADs are stateless. Multiple submissions for the same release create separate records rather than updates, preserving the full enrichment history.
+
+**Example from [ddex-proto](https://github.com/OpenAudio/ddex-proto/blob/main/proto/ddex/mead/v11/v11.proto)**:
+
+```protobuf
+message MeadMessage {
+  MessageHeader message_header = 1;
+  MetadataSourceList metadata_source_list = 3;
+  ResourceInformationList resource_information_list = 5;
+  ReleaseInformationList release_information_list = 6;
+}
+
+message ResourceInformation {
+  repeated Mood mood = 14;
+  repeated GenreCategory genre_category = 2;
+  repeated Lyrics lyrics = 22;
+  repeated Theme theme = 18;
+}
+```
+
+### PIE
+
+[DDEX PIE](https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/) (Party Identification and Enrichment) augments party profiles with biographical data, social media links, and cross-platform identifiers. PIE messages can include social handles, biographical information, additional identifiers from music databases, and other party-specific metadata. This creates a distributed identity system where parties are enriched with information from multiple sources over time.
+
+Like MEADs, any address can submit PIE messages about any party. This enables a crowdsourced approach where fans, industry professionals, and automated systems all contribute identifying information. The same trust considerations apply: indexers must decide which PIE submissions to consider authoritative.
+
+The decentralized PIE system addresses a common music metadata problem: the lack of canonical party identification across different platforms and databases. By allowing multiple identification schemes and enrichment sources, OAP creates a more complete picture of music industry participants while maintaining flexibility for consumers to apply their own trust and verification standards.
+
+PIEs support cross-referencing parties across blockchain addresses, social media accounts, and traditional music industry identifiers, creating a more connected and discoverable ecosystem.
+
+**Example from [ddex-proto](https://github.com/OpenAudio/ddex-proto/blob/main/proto/ddex/pie/v10/v10.proto)**:
+
+```protobuf
+message PieMessage {
+  MessageHeader message_header = 1;
+  MetadataSourceList metadata_source_list = 2;
+  PartyList party_list = 3;
+}
+
+message Party {
+  string party_reference = 1;
+  repeated DetailedPartyIdForParty party_id = 2;
+  repeated PartyName party_name = 3;
+  repeated Biography biography = 18;
+  SocialMediaURL social_media_u_r_l = 20;
+}
+```
+
+## Go Example
+
+Here's how to use the generated Go libraries to create messages for Durante's "[Enter](https://audius.co/ImDurante/album/enter)":
+
+### ERN Message
+
+ERN messages define entities separately and link them together with references. In this example, we create four sound recordings from the 13-track album that get packaged into two different releases: a single containing just one track, and the full album containing all four tracks shown here. We also include an image resource for the album art.
+
+Each entity gets a reference ID (like `party-550e8400...` or `track-550e8400...`) that other entities use to link to it. These references are scoped to the message itself. The `ResourceGroup` on each release specifies which tracks to include and in what order by referencing the sound recordings.
+
+The `ProprietaryId` with namespace "OpenAudio" is where blockchain addresses come in. This links Durante's party to an on-chain address, enabling decentralized ownership verification and message signing. Traditional DDEX uses industry identifiers like ISNI as well. While anyone can claim to be Durante with any address, indexers and views verify message signatures on OAP to identify false claims and determine which parties are legitimate.
+
+```go
+package main
+
+import (
+    "github.com/OpenAudio/ddex-proto/gen/ddex/ern/v43"
+)
+
+func main() {
+    // Define the artist
+    durante := &v43.Party{
+        PartyReference: "party-550e8400-e29b-41d4-a716-446655440001",
+        PartyName: []*v43.PartyNameWithTerritory{{
+            FullName: &v43.Name{Value: "Durante"},
+        }},
+        PartyId: []*v43.DetailedPartyId{{
+            ProprietaryId: []*v43.ProprietaryId{{
+                Namespace: "OpenAudio",
+                Value:     "0x742d35cc6634C0532925a3b8D2c1c2F78E2c7aB2",
+            }},
+        }},
+    }
+
+    // Define album art
+    albumArt := &v43.Image{
+        ResourceReference: "image-550e8400-e29b-41d4-a716-446655440020",
+        ImageType: "FrontCoverImage",
+        ImageCodecType: &v43.ImageCodecType{Value: "JPEG"},
+        ImageHeight: 3000,
+        ImageWidth:  3000,
+    }
+
+    // Define sound recordings for the album
+    lmk := &v43.SoundRecording{
+        ResourceReference: "track-550e8400-e29b-41d4-a716-446655440010",
+        DisplayTitleText: []*v43.DisplayTitleText{{
+            Value: "LMK feat. CRi",
+        }},
+        Duration: &v43.Duration{Value: "PT3M53S"},
+    }
+
+    holdingOn := &v43.SoundRecording{
+        ResourceReference: "track-550e8400-e29b-41d4-a716-446655440011",
+        DisplayTitleText: []*v43.DisplayTitleText{{
+            Value: "Holding On feat. Nathan Nicholson",
+        }},
+        Duration: &v43.Duration{Value: "PT3M58S"},
+    }
+
+    opalescent := &v43.SoundRecording{
+        ResourceReference: "track-550e8400-e29b-41d4-a716-446655440012",
+        DisplayTitleText: []*v43.DisplayTitleText{{
+            Value: "Opalescent",
+        }},
+        Duration: &v43.Duration{Value: "PT4M8S"},
+    }
+
+    remedy := &v43.SoundRecording{
+        ResourceReference: "track-550e8400-e29b-41d4-a716-446655440013",
+        DisplayTitleText: []*v43.DisplayTitleText{{
+            Value: "Remedy feat. Running Touch",
+        }},
+        Duration: &v43.Duration{Value: "PT3M45S"},
+    }
+
+    // Single release - references only one track
+    single := &v43.Release{
+        ReleaseReference: "release-550e8400-e29b-41d4-a716-446655440100",
+        ReleaseId: &v43.ReleaseId{
+            Icpn: "5060236639691",
+        },
+        DisplayTitleText: []*v43.DisplayTitleText{{
+            Value: "LMK",
+        }},
+        ReleaseDate: "2024-04-05",
+        ResourceGroup: &v43.ResourceGroup{
+            ResourceGroupContentItem: []*v43.ResourceGroupContentItem{{
+                SequenceNumber:          1,
+                ReleaseResourceReference: "track-550e8400-e29b-41d4-a716-446655440010",
+            }},
+        },
+    }
+
+    // Album release - references all tracks and album art
+    album := &v43.Release{
+        ReleaseReference: "release-550e8400-e29b-41d4-a716-446655440101",
+        ReleaseId: &v43.ReleaseId{
+            Icpn: "5060236639691",
+        },
+        DisplayTitleText: []*v43.DisplayTitleText{{
+            Value: "Enter",
+        }},
+        ReleaseDate: "2024-04-05",
+        PLine: &v43.PLineWithDefault{{
+            Year: "2024",
+            PLineText: "Anjunadeep",
+        }},
+        ResourceGroup: &v43.ResourceGroup{
+            ResourceGroupContentItem: []*v43.ResourceGroupContentItem{
+                {
+                    SequenceNumber:          1,
+                    ReleaseResourceReference: "track-550e8400-e29b-41d4-a716-446655440010",
+                },
+                {
+                    SequenceNumber:          2,
+                    ReleaseResourceReference: "track-550e8400-e29b-41d4-a716-446655440011",
+                },
+                {
+                    SequenceNumber:          3,
+                    ReleaseResourceReference: "track-550e8400-e29b-41d4-a716-446655440012",
+                },
+                {
+                    SequenceNumber:          4,
+                    ReleaseResourceReference: "track-550e8400-e29b-41d4-a716-446655440013",
+                },
+            },
+        },
+        ReleaseResourceReferenceList: &v43.ReleaseResourceReferenceList{
+            ReleaseResourceReference: []string{"image-550e8400-e29b-41d4-a716-446655440020"},
+        },
+    }
+
+    // Compose the ERN message
+    ern := &v43.NewReleaseMessage{
+        PartyList: &v43.PartyList{
+            Party: []*v43.Party{durante},
+        },
+        ResourceList: &v43.ResourceList{
+            SoundRecording: []*v43.SoundRecording{
+                lmk,
+                holdingOn,
+                opalescent,
+                remedy,
+            },
+            Image: []*v43.Image{albumArt},
+        },
+        ReleaseList: &v43.ReleaseList{
+            Release: []*v43.Release{single, album},
+        },
+    }
+}
+```
+
+### MEAD Message
+
+Add enrichment metadata to the title track. Anyone can submit this to add mood, genre, and thematic tags:
+
+```go
+import (
+    "github.com/OpenAudio/ddex-proto/gen/ddex/mead/v11"
+)
+
+func enrichTrack() {
+    mead := &v11.MeadMessage{
+        ResourceInformationList: &v11.ResourceInformationList{
+            ResourceInformation: []*v11.ResourceInformation{{
+                ResourceSummary: &v11.ResourceSummary{
+                    ResourceId: &v11.ResourceIdWithoutFlag{
+                        ProprietaryId: []*v11.ProprietaryId{{
+                            Namespace: "OpenAudio",
+                            Value:     "track-550e8400-e29b-41d4-a716-446655440010",
+                        }},
+                    },
+                },
+                Mood: []*v11.Mood{{
+                    Value: &v11.MoodValue{Value: "Ethereal"},
+                }},
+                GenreCategory: []*v11.GenreCategory{{
+                    Value: &v11.GenreCategoryValue{Value: "Progressive House"},
+                }},
+                Theme: []*v11.Theme{{
+                    Value: &v11.ThemeValue{Value: "Atmospheric"},
+                }},
+            }},
+        },
+    }
+}
+```
+
+### PIE Message
+
+Enrich Durante's party profile with biographical information and social links:
+
+```go
+import (
+    "github.com/OpenAudio/ddex-proto/gen/ddex/pie/v10"
+)
+
+func enrichParty() {
+    pie := &v10.PieMessage{
+        PartyList: &v10.PartyList{
+            Party: []*v10.Party{{
+                PartyReference: "party-550e8400-e29b-41d4-a716-446655440001",
+                PartyName: []*v10.PartyName{{
+                    FullName: &v10.NameWithScriptCode{
+                        Name: &v10.Name{Value: "Durante"},
+                    },
+                }},
+                Biography: []*v10.Biography{{
+                    Text: []*v10.BiographyText{{
+                        Value: "Durante is an American electronic music producer and DJ, known for his melodic progressive house sound. After 18 years of musical journey, he released his debut album 'Enter' on Anjunadeep in 2024.",
+                    }},
+                }},
+                SocialMediaUrl: &v10.SocialMediaURL{
+                    Value: "https://www.instagram.com/imdurante",
+                },
+            }},
+        },
+    }
+}
+```
