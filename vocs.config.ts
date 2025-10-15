@@ -8,9 +8,9 @@ export default defineConfig({
   title: 'Docs',
   iconUrl: '/favicon.png',
   ogImageUrl: {
-    '/': 'og-docs.png',
-    '/blog': 'og-blog.png',
-    '/blog/*': 'og-blog.png',
+    '/': '/og-docs.png',
+    '/blog': '/og-blog.png',
+    '/blog/*': '/og-blog.png',
   },
   logoUrl: {
     light: '/logo-light.svg',
