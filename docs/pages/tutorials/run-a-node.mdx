@@ -208,12 +208,16 @@ Deregister your existing node
 3. Click on the node you wish to migrate
 4. Click the trash can icon to de-register the node, and type DEREGISTER to confirm
 5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
+6. Shut down your existing content node
 
 Use the new image
-6. Shut down your existing content node
 7. Update the environment variable `creatorNodeEndpoint` to be `nodeEndpoint`
-6. Click register a new node
-7. Use the same URL and keypair you previously had used for your node
+8. Set the image from audiusd to `openaudio/go-openaudio:stable`
+
+Register a new code
+9. Click register a new node
+10. Use the same URL and keypair you previously had used for your node
+11. Spin your node back up
 
 :::warning
 If this is your last node, an unstake request will get created. You may cancel it or simply ignore it.
