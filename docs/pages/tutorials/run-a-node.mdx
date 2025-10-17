@@ -126,6 +126,35 @@ AWS_ACCESS_KEY_ID=XXXXXXXXXXXX
 AWS_SECRET_ACCESS_KEY=XXXXXXXXXXXXXXXXXXXXX
 ```
 
+### Moving to blob storage
+
+To move from filesystem storage to blob storage, set the environment variables above to your choosing.
+
+1. Set the env var
+```
+AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM="file:///tmp/mediorum/blobs?no_tmp_dir=true"
+```
+2. Restart your node.
+
+
+You will see this log line:
+```
+info    Moving all files from file:///tmp/mediorum/blobs?no_tmp_dir=true to s3://my-s3-bucket. This may take a few hours...       
+{"node": "https://my-node.com", "service": "mediorum"}
+```
+When finished, you will this log line:
+
+```
+info    Finished moving files between buckets. Please remove AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM from your environment and restart the server. {"node": "https://my-node.com", "service": "mediorum"}
+```
+:::note
+This change will take a few hours.
+:::
+
+3. When it completes, or when the target blob storage resembles the expected size, remove `AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM` from your env and restart your node.
+
+4. Any missed files will be re-synced by the mediorum repair job.
+
 ## Node registration
 
 A validator node can be registered as soon as it is stood up.
@@ -172,11 +201,17 @@ If this is your last node, an unstake request will get created. You may cancel i
 Existing content nodes, if running a recent `audiusd` or `go-openaudio` image, qualify as validator nodes. Content nodes have a smaller maximum stack allowance than validator nodes though, so it is beneficial to re-register them. It is also highly recommended that you move your node to blob storage if it is running off of a disk.
 
 To re-register your node:
+
+Deregister your existing node
 1. Visit the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
 2. Authenticate with your wallet
 3. Click on the node you wish to migrate
 4. Click the trash can icon to de-register the node, and type DEREGISTER to confirm
 5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
+
+Use the new image
+6. Shut down your existing content node
+7. Update the environment variable `creatorNodeEndpoint` to be `nodeEndpoint`
 6. Click register a new node
 7. Use the same URL and keypair you previously had used for your node
 
