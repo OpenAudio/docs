@@ -2,59 +2,74 @@
 
 This guide shows you how to run a validator node or an RPC node.
 
-:::note
+:::info
 Validators are registered on chain, earn staking rewards, and are required to commit file storage to the network. RPC nodes make data available for off-chain products and do not need to commit file storage.
 :::
 
 ## Specs
 
+:::note
 go-openaudio
 [code](https://github.com/openaudio/go-openaudio) [releases](https://hub.docker.com/r/openaudio/go-openaudio/tags)
-
-
-Stable releases are published ~monthly and tagged by their semver. Nightly builds are tagged by commit hash/sha. $AUDIO governance votes on adoption of versions.
+:::
 
 go-openaudio is a single docker container that can be run on most hardware with a very minimal set up.
+
+> Stable releases are published monthly at [`openaudio/go-openaudio:stable`](https://hub.docker.com/r/openaudio/go-openaudio).\
+Nightly (edge) builds are tagged by commit hash.\
+$AUDIO governance votes on adoption of versions. That version can be found [here](https://dashboard.audius.org/#/nodes).
+
 
 It is recommended to provision a VM with at least:
 * 16GB of memory
 * 8 cpu cores
-* 100GB boot disk
-* Datacenter grade network infrastructure
+* 200GB boot disk
+* Datacenter-grade network access
 
-Additionally, validator nodes require file storage. You may elect to use a disk, or any S3-compatible (elastic) blob storage. Generally blob-storage is cheaper given typical workloads.
+Additionally, validator nodes require file storage. You may elect to use a disk, or any S3-compatible (elastic) blob storage. Generally blob-storage is substantially more cost-effective.
 
 :::tip
-The amount of storage (bytes) you will need to provide can be found via the RPC [storage.v1.StorageService/GetStatus](https://creatornode.audius.co/storage.v1.StorageService/GetStatus).
+The amount of storage (bytes) you will need to provide can be found via the RPC [storage.v1.StorageService/GetStatus](https://creatornode.audius.co/storage.v1.StorageService/GetStatus). This number is calculated from the total storage of the network and the number of nodes. See [media-storage](/concepts/media-storage) for more information.
 :::
 
 ## Set up
 
 These instructions will show you a minimal `docker compose` set up with an auto-upgrade policy. You may choose your own path instead!
 
-1. First, provision an Ethereum secp256k1 keypair for your node. This key never holds funds.
+**1. Provision a keypair**
+
+This is the Ethereum secp256k1 keypair for your node. This key never holds funds, but is used to sign requests.
 
 ```bash
 pip install eth-keys
-python -c "from eth_keys import keys;import os;p=keys.PrivateKey(os.urandom(32));print(p.public_key.to_checksum_address(),p.to_hex())"
+python -c "from eth_keys import keys;import os;p=keys.PrivateKey(os.urandom(32));print('delegateOwnerWallet=',p.public_key.to_checksum_address(),'\ndelegatePrivateKey=',p.to_hex(),sep='')"
 ```
 
-2. Create a docker compose file
+**2. Create an .env file**
+
+```bash // [.env]
+nodeEndpoint=https://my-node.com
+# The keypair you generated above
+delegateOwnerWallet=0x01234567890abcdef01234567890abcdef012345
+delegatePrivateKey=01234567890abcdef01234567890abcdef01234567890abcdef01234567890ab
+# Your wallet address that is staking. If running an RPC, set to the same value as `delegateOwnerWallet`
+spOwnerWallet=0x01234567890abcdef01234567890abcdef012345
+
+# Validator storage configuration, if electing to use blob storage
+AUDIUS_STORAGE_DRIVER_URL=s3://my-s3-bucket
+AWS_REGION=us-west-2
+AWS_ACCESS_KEY_ID=XXXXXXXXXXXXXXXXXXXX
+AWS_SECRET_ACCESS_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+**3. Create a docker compose file**
 ```yaml // [docker-compose.yml]
 services:
   my-node:
     image: openaudio/go-openaudio:stable
     container_name: my-node
-    environment:
-      nodeEndpoint: https://my-node.com
-      delegateOwnerWallet: 0x01234567890abcdef01234567890abcdef012345
-      delegatePrivateKey: 01234567890abcdef01234567890abcdef01234567890abcdef01234567890ab
-      spOwnerWallet: 0x01234567890abcdef01234567890abcdef012345
-      # only set if running a validator node, see section below for blob storage providers
-      AUDIUS_STORAGE_DRIVER_URL: s3://my-s3-bucket
-      AWS_REGION: us-west-2
-      AWS_ACCESS_KEY_ID: XXXXXXXXXXXXXXXXXXXX
-      AWS_SECRET_ACCESS_KEY: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    env_file:
+      - .env
     volumes:
       - /root/audiusd-prod-data:/data
     ports:
@@ -71,40 +86,40 @@ services:
     command: --cleanup my-node
 ```
 
-2. Run your node
+**4. Run your node**
 ```
 docker compose up -d
 ```
 
-3. Check your node
+**5. Monitor your node**
 ```bash
 curl my-node.com/health-check
 ```
 
-:::note
-Your node will begin syncing both [core](/concepts/validators#core) data as well as being hosting files using [mediorum](/concepts/validators#mediorum). This process could take a few hours. When it is finished, your node will no longer say syncing
+or visit [https://my-node.com/console](https://my-node.com/console) in your web browser
+
+:::tip
+Your node will begin syncing both [core](/concepts/validators#core) data as well as being hosting files using [mediorum](/concepts/validators#mediorum). This process can take a few hours. When it is finished, your node will no longer say syncing.
+
+The /health-check endpoint also provides `live` and `ready` booleans that can be used to monitor ongoing status.
 :::
-
-4. Monitor your node and the network
-
-Visit [https://my-node.com/console](https://my-node.com/console) in your web browser
 
 ## Blob storage options
 
 Blob storage is configured using the popular [go-cdk](https://gocloud.dev/) library and should work with most blob storage offerings on the market. We have provided some example config below to get started with some commonly used providers.
 
 ```bash
-# GCP Cloud Storage
-#   you will need an additional mount for the credentials
-#   i.e. `-v google-application-credentials.json:/tmp/google-application-credentials.json`
-AUDIUS_STORAGE_DRIVER_URL=gs://my-gcs-bucket
-GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-application-credentials.json
-
 # AWS S3:
 AUDIUS_STORAGE_DRIVER_URL=s3://my-s3-bucket
 AWS_REGION=us-west-2
 AWS_ACCESS_KEY_ID=XXXXXXXXXXXX
 AWS_SECRET_ACCESS_KEY=XXXXXXXXXXXXXXXXXXXXX
+
+# GCP Cloud Storage
+#   you will need an additional mount for the credentials
+#   i.e. `-v google-application-credentials.json:/tmp/google-application-credentials.json`
+AUDIUS_STORAGE_DRIVER_URL=gs://my-gcs-bucket
+GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-application-credentials.json
 
 # Cloudflare R2:
 AUDIUS_STORAGE_DRIVER_URL='s3://my-r2-bucket?endpoint=https://abc123def456.r2.cloudflarestorage.com'
@@ -134,13 +149,16 @@ AWS_SECRET_ACCESS_KEY=XXXXXXXXXXXXXXXXXXXXX
 
 ### Moving to blob storage
 
-To move from filesystem storage to blob storage, set the environment variables above to your choosing.
+To move from filesystem/disk storage to blob Storage
 
-1. Set the env var
+1. Set the approprivate environment variables based on the above configuration for your provider.
+
+2. Set the env var
 ```
 AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM="file:///tmp/mediorum/blobs?no_tmp_dir=true"
 ```
-2. Restart your node.
+
+3. Restart your node.
 
 
 You will see this log line:
@@ -157,17 +175,27 @@ info    Finished moving files between buckets. Please remove AUDIUS_STORAGE_DRIV
 This change will take a few hours.
 :::
 
-3. When it completes, or when the target blob storage resembles the expected size, remove `AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM` from your env and restart your node.
+4. When it completes, or when the target blob storage resembles the expected size, remove `AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM` from your env.
 
-4. Any missed files will be re-synced by the mediorum repair job.
+5. Restart your node. Any missed files will be re-synced by the mediorum repair job.
 
 ## Node registration
 
 A validator node can be registered as soon as it is stood up.
 
-Currently the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes) offers a simple UI to register nodes. One may also elect to use [etherscan directly](https://etherscan.io/address/0xD17A9bc90c582249e211a4f4b16721e7f65156c8#writeProxyContract) using the `register` function.
+Currently the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes) offers a simple UI to register nodes. You may also elect to use [etherscan directly](https://etherscan.io/address/0xD17A9bc90c582249e211a4f4b16721e7f65156c8#writeProxyContract) using the `register` function.
 
+On the protocol dashboard:
+1. Connect a wallet or multisig using wallet connect button at the top of the page
+2. Click `Nodes` in the navigation menu
+3. Click `Register New Node`
+4. Fill out `nodeEndpoint`, `delegateOwnerWallet` based on your configuration above
+5. Set a desired stake amount (you must have this much $AUDIO already in your wallet)
+6. Click register and then sign & send the two transactions
+
+:::note
 Registration requires a minimum bond of 200,000 $AUDIO.
+:::
 
 ## Migrating from an old stack
 
@@ -204,11 +232,12 @@ If this is your last node, an unstake request will get created. You may cancel i
 
 ### Content to validator
 
-Existing content nodes, if running a recent `audiusd` or `go-openaudio` image, qualify as validator nodes. Content nodes have a smaller maximum stack allowance than validator nodes though, so it is beneficial to re-register them. It is also highly recommended that you move your node to blob storage if it is running off of a disk.
+Existing content nodes, if running a recent `audiusd` or `go-openaudio` image, qualify as validator nodes. Content nodes have a smaller maximum stake allowance than validator nodes though, so it is beneficial to re-register them. It is also highly recommended that you move your node to blob storage if it is running off of a disk. See [moving to blob storage](/tutorials/run-a-node#moving-to-blob-storage).
 
 To re-register your node:
 
-Deregister your existing node
+**Deregister your existing node**
+
 1. Visit the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
 2. Authenticate with your wallet
 3. Click on the node you wish to migrate
@@ -216,11 +245,13 @@ Deregister your existing node
 5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
 6. Shut down your existing content node
 
-Use the new image
+**Update node**
+
 7. Update the environment variable `creatorNodeEndpoint` to be `nodeEndpoint`
 8. Set the image from audiusd to `openaudio/go-openaudio:stable`
 
-Register a new code
+**Register the new node**
+
 9. Click register a new node
 10. Use the same URL and keypair you previously had used for your node
 11. Spin your node back up
