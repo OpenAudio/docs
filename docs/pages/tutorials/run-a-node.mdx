@@ -1,3 +1,5 @@
+import ValidatorEconomics from '../../components/ValidatorEconomics'
+
 # Run A Node
 
 This guide shows you how to run a validator node or an RPC node.
@@ -27,6 +29,12 @@ Additionally, validator nodes require file storage. You may elect to use a disk,
 :::tip
 The amount of storage (bytes) you will need to provide can be found via the RPC [storage.v1.StorageService/GetStatus](https://creatornode.audius.co/storage.v1.StorageService/GetStatus).
 :::
+
+## Economics
+
+This tool models validator earnings and costs dynamically based on real-time data from $AUDIO and supported compute and blob providers.
+
+<ValidatorEconomics />
 
 ## Set up
 

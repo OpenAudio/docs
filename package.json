@@ -12,6 +12,7 @@
     "pixi.js": "^8.13.2",
     "react": "latest",
     "react-dom": "latest",
+    "recharts": "^3.3.0",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
     "vocs": "latest"
