@@ -71,7 +71,8 @@ services:
     env_file:
       - .env
     volumes:
-      - /root/audiusd-prod-data:/data
+        - /root/openaudio-prod/data:/data
+        - /root/openaudio-prod/core:/audius-core
     ports:
       - 80:80
       - 443:443
