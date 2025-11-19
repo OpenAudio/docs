@@ -221,14 +221,14 @@ Registration requires a minimum bond of 200,000 $AUDIO.
 > 2. Authenticate with your wallet
 > 3. Click on the node you wish to migrate
 > 4. Click the trash can icon to de-register the node, and type DEREGISTER to confirm
+>
+:::warning
+If this is your last node, an unstake request will get created, visible on your operator page. Before continuing, you should cancel that request.
+:::
 > 5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
 > 6. Click register a new node
 > 7. Use the same URL and keypair you previously had used for your node
   
-
-:::warning
-If this is your last node, an unstake request will get created. You may cancel it or simply ignore it.
-:::
 
 ### Content to validator
 
@@ -245,6 +245,10 @@ To re-register your node:
 5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
 6. Shut down your existing content node
 
+:::warning
+If this is your last node, an unstake request will get created, visible on your operator page. Before continuing, you should cancel that request.
+:::
+
 **Update node**
 
 7. Update the environment variable `creatorNodeEndpoint` to be `nodeEndpoint`
@@ -256,6 +260,3 @@ To re-register your node:
 10. Use the same URL and keypair you previously had used for your node
 11. Spin your node back up
 
-:::warning
-If this is your last node, an unstake request will get created. You may cancel it or simply ignore it.
-:::
