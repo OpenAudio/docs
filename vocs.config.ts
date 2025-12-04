@@ -114,6 +114,10 @@ export default defineConfig({
           text: 'Solana Programs',
           link: '/reference/solana-programs',
         },
+        {
+          text: 'Audits',
+          link: '/reference/audits'
+        }
       ],
     },
     {

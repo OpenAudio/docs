@@ -1,14 +1,18 @@
 ## Programs
 
-Please note that all "Testnet" Programs are deployed to Solana Mainnet. This is to allow for liquidity on functionality.
+Please note that all "Testnet" Programs are deployed to Solana Mainnet. This is to allow for proper liquidity on all functionality.
 
 > [github.com/OpenAudio/solana-programs](https://github.com/OpenAudio/solana-programs)
 
+:::note
+All programs are fully audited by reputable security firms, see [Audits](/reference/audits) for more details.
+:::
+
 ### Claimable Tokens
 
-This program powers the reward system, and allows Solana non-custodial token accounts to be
-created for users that are represented by an Ethereum wallet. This program is also referred
-to as the "User Bank".
+This program powers the Audius reward system, and allows Solana non-custodial token accounts to be created for Audius users that are represented by an Ethereum wallet. This program is also referred to as the "User Bank".
+
+This program was developed originally to allow for a very specific use case: make it so users who only have ethereum accounts can receive solana token rewards. Leveraging the solana secp instructions, we derive token accounts belonging to a PDA on the claimable tokens program whose ability to transfer from is controlled by ethereum signatures. This allows for us to send rewards to a user and for them to be later claimed without needing them to even have an active session to create a receiving wallet.
 
 | Mainnet Program                                                   | Testnet Program                                                        |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
