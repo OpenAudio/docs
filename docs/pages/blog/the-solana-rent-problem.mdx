@@ -1,0 +1,82 @@
+---
+layout: minimal
+date: 2025-12-04
+authors: 
+  - "[ray j](https://twitter.com/raymondjacobson)"
+---
+
+# Claimable Tokens & The Solana Rent UX Problem
+
+::authors
+
+> This blog post discusses one of the challenges building on Solana and the recent enhancement to our Claimable Tokens program we have made to address some of it
+
+
+Giving Web2 native users a straightfoward onramp experience to holding onchain assets is still, in 2025, one of the biggest challenges that the blockchain ecosystem faces in its pursuit of consumer adoption.
+
+### The Onramp Problem
+
+Any project-team building in the Web3 consumer space and trying to attract non-crypto native users likely shares these two goals:
+
+1. Users of the protocol should be able to onboard easily into custodying some onchain asset
+2. Assurance that onboarding is somewhat sibyl resistant (one person one account)
+
+Solving for these two goals varies in difficulty depending on what kind of audience your product targets. High-intent user experiences have an easier time (e.g. crypto-banking, RWAs) where users plan to spend a lot, hold a lot, and each individual user can be worth high CAC to the onboarding protocol.
+
+For example, to onramp \$1,000 of crypto in a banking-like app, you would likely need to KYC your customers to check against OFAC, verify authenticity, etc. KYC flows typically cost north of $1/user and have a hefty UX tax: push a user to scan their driver's license or enter their SSN into a webform for an application they're new to. The KYC flow solves for (2) quite well (though forged passports are a real threat), and does enough for (1) because the user is willing to stomach 5 minutes of onboarding because of the size of their purchase/activity. They are _high-intent_.
+
+Products in social, music, etc. typically have a lot of _low-intent_ users, at least the top of the funnel. The user's first experience to these kinds of products may be in an embedded mobile browser inside Instagram or it may be from a friend sharing a one off piece of UGC content in a text message. The user is passive and not necessarily likely to convert, even in the best of situations. For this kind of use case, your product does not have the luxury of 5 minutes of time for the user to enter their SSN. An in-the-trenches crypto native may say, "wait! they can just open your mobile website inside their Phantom browser!" and use their wallet (or something to that end). This naïvely assumes that the user already has a crypto wallet and that the user has already onramped in some capacity. This is a big assumption to make when your product is trying to reach normal adoption.
+
+### Solana Rent
+
+Solana, though still the obvious choice for many consumer use cases due to its fast transaction speeds, full decentralization, and robust ecosystem, has an additional hurdle in the onramping problem: Rent.
+
+The concept around Solana rent is simple: to store data onchain, you need to put up some collateral for it. While this is a bit of a simplification and the history is somewhat more complicated, rent boils down to putting down a one-time payment in order to write data. Everything onchain is stored in accounts on Solana and opening accounts requires a security deposit. When you close the account, you get your deposit back.
+
+This materializes in a very painful way for onramp token custody. In order to hold any amount of a coin (no matter how small an amount), it costs ~0.002 SOL to open the account. At a low price of SOL, this is not a horrible fee to pay, but even at today's depressed prices of \$140/SOL, 0.002 is almost 30 cents! Put in the context of Artist Coins, in order to hold \$1 USD of value of a coin, you pay a 30% tax! (Yes, not exactly "paid" becuase it can get returned, but it's a major friction point.) Noted that most Artist Coin gated tracks only require 1 coin for access, so the rent fee can even outpace the value of the coin itself.
+
+Building in music x crypto, we constantly dream of features and use-cases where artists can airdrop 1 coin of theirs to every fan who has attended a past show or purchased merchandise. That is functionally quite tricky to build with the cost of rent. The rent is just too damn high!
+
+### The Claimable Tokens (User Bank) Program
+
+The cost of rent was an unacceptable onboarding experience of holding \$AUDIO, so in 2022, under the Audius Protocol and now formally adopted in the Open Audio Protocol, a program was designed to pre-allocate solana $AUDIO accounts for users. We called this program the Claimable Tokens (or User Bank) program and you can read more about it [here](/reference/solana-programs.mdx#claimable-tokens).
+
+The concept was to allow for applications on the protocol, like Audius, to be able to open token accounts for users, claimable only to an end-user and for the annoying rent fee to be covered by a fee payer of the application's choosing. Another, more mundane aspect of the original design, was to solve for the fact that at the time all Audius users had Ethereum addresses which are not directly compatible with Solana and the Claimable Tokens program allowed for Ethereum identities to prove ownership over Solana accounts.
+
+Since 2022, the Claimable Tokens program has grown to serve both USDC for in-app cash accounts on Audius as well as all Artist Coin holdings of users. In 2022, when Claimable Tokens launched, 0.002 SOL of rent was around 10 cents. This was a reasonable choice at the time for 1 \$AUDIO account per user, but simply cannot scale to the magnitude of users across the Open Audio Protocol today and the variety of coins they may hold, many of which may have small dollar value (remember, a Spotify stream is worth around 0.3 cents).
+
+### 2025 & Beyond
+
+We have recently shipped a simple, but very useful change to the Claimable Tokens program that allows for ownership to be transfered and accounts to be closed. This solves two major issues with the prior implementation for us.
+
+#### 1. Set Authority 
+
+Claimable Token accounts can now be moved from the Claimable Tokens program onto a user's own Solana wallet as associated accounts. This supports a much cleaner experience for crypto-native users who bring wallets to the table already and also allows for balances to be more easily read by applications, explorers, CEXs, and DEXs. All funds belonging to a user can be more easily summed up with much simpler arithmetic.
+
+#### 2. Close Account
+
+Claimable Token accounts can now be closed when their balance is zero and return rent to a predetermined owner when the account was created. This change massively reduces the amount of farming cost incurred by an application wishing to fee pay for their users as farmers/spammers typically churn and those zero'd out accounts can be now swept.
+
+Very notably the native Solana Token Program account model _does not_ support a way to have rent reclaimed by specified authority -- only the owner on the account. There are obvious denial-of-service concerns that are presented with the ability for acounts to be closed by a third-party, but as it stands today, it is prohibitively impossible to fee pay someone else's token account rent using native solana tools as such a system can be infinitely drained of funds.
+
+Imagine that you want to build an app where users can come in and earn revenue in USDC onto their Coinbase account. When the user signs up to earn, they have no earnings yet, but the application needs to create a USDC account on their Coinbase wallet, costing 0.002 SOL. If the application fee-pays the rent for that account creation, a nefarious user could simply close the account and collect the 0.002 SOL and repeat the process. The changes that give our Claimable Tokens program a flexible close account rent recipient, give the application slightly more control over user accounts, but can help prevent such fund draining scenarios from happening.
+
+---
+
+The changes to support these two functionalities can be seen in the [code on Github](https://github.com/OpenAudio/solana-programs/tree/main/claimable-tokens), and thanks to our partners at Zellic, the program has been fully audited and upgraded at [] on Dec 4, 2025.
+
+import FileIcon from '../../components/FileIcon'
+
+<div className="audit-item">
+  <a href="/audits/Zellic_Audius_Claim_and_Rewards_Program_111125.pdf" target="_blank" className="audit-link">
+    <FileIcon className="audit-link-icon" />
+    <strong>Zellic Claimable Tokens and Rewards Program</strong>
+  </a>
+  <span> - November 11, 2025</span>
+</div>
+
+---
+
+This obviously doesn't solve all of the problems we face with sibyl resistance and onboarding UX, but it is a meaningful step in the direction of creating better first onboarding experiences of anyone who is a first time crypto holder.
+
+We welcome any bugs, feature asks and usages of our Claimable Tokens programs or any of the other utilities we have built along the way to bringing music onchain.
