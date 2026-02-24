@@ -65,3 +65,36 @@ font-display:auto;font-style:normal;font-weight:400;font-stretch:normal;
 .audit-item {
   margin-bottom: 1rem;
 }
+
+.substack-link-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.substack-link-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.substack-link {
+  color: #c278f2;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.substack-link:hover {
+  color: #a855f7;
+  text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .substack-link {
+    color: #c084fc;
+  }
+  .substack-link:hover {
+    color: #d8b4fe;
+  }
+}
