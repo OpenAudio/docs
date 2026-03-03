@@ -1,3 +1,132 @@
-# Create Reward pools
+<img style={{ borderRadius: '10px', overflow: 'hidden' }} src='/pipes.png' />
 
-Coming soon.
+# Create Reward Pools
+
+Reward pools are programmable token distributions on the Open Audio Protocol. You can use them for any Solana SPL token, but they are designed for Artist Coins—letting creators create pools that reward fans (e.g. for listening, sharing, or participating in campaigns). Claim authorities sign attestations; users redeem those attestations to claim tokens from the pool.
+
+## Prerequisites
+
+- Go 1.21+
+- A node endpoint (e.g. devnet `https://node1.oap.devnet` or production)
+- An Ethereum secp256k1 private key (will act as a claim authority)
+
+---
+
+## Create a reward pool
+
+Create a reward by sending a `CreateReward` transaction. You define the reward amount, claim authorities (wallets that can issue attestations), and a deadline block height.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	"connectrpc.com/connect"
+	v1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/common"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
+)
+
+func main() {
+	privKeyStr := os.Getenv("PRIVATE_KEY")
+	if privKeyStr == "" {
+		log.Fatal("PRIVATE_KEY environment variable is required")
+	}
+	privKey, err := common.EthToEthKey(privKeyStr)
+	if err != nil {
+		log.Fatalf("failed to parse private key: %v", err)
+	}
+
+	nodeURL := "https://node1.oap.devnet"
+	oap := sdk.NewOpenAudioSDK(nodeURL)
+	oap.SetPrivKey(privKey)
+
+	ctx := context.Background()
+
+	// Get current block height for deadline
+	status, err := oap.Core.GetStatus(ctx, connect.NewRequest(&v1.GetStatusRequest{}))
+	if err != nil {
+		log.Fatalf("failed to get chain status: %v", err)
+	}
+	currentHeight := status.Msg.ChainInfo.CurrentHeight
+	deadline := currentHeight + 100 // e.g. valid for ~100 blocks
+
+	// Create the reward pool
+	reward, err := oap.Rewards.CreateReward(ctx, &v1.CreateReward{
+		RewardId: "fan-drop-001",
+		Name:     "Fan Drop Campaign",
+		Amount:   1000, // in token's smallest units
+		ClaimAuthorities: []*v1.ClaimAuthority{
+			{Address: oap.Address(), Name: "Campaign Admin"},
+		},
+		DeadlineBlockHeight: deadline,
+	})
+	if err != nil {
+		log.Fatalf("failed to create reward: %v", err)
+	}
+
+	fmt.Printf("reward pool created at address: %s\n", reward.Address)
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `RewardId` | Unique identifier for this reward (e.g. campaign code) |
+| `Name` | Human-readable name |
+| `Amount` | Reward amount per claim, in the token's smallest units |
+| `ClaimAuthorities` | Wallets that can sign attestations to authorize claims |
+| `DeadlineBlockHeight` | Block height after which the pool expires |
+
+---
+
+## Get reward details
+
+Fetch an existing reward by its on-chain address:
+
+```go
+reward, err := oap.Rewards.GetReward(ctx, rewardAddress)
+if err != nil {
+	log.Fatalf("failed to get reward: %v", err)
+}
+fmt.Printf("reward id: %s, amount: %d\n", reward.RewardId, reward.Amount)
+```
+
+---
+
+## Issue an attestation
+
+When a user qualifies (e.g. completes a listen, shares, or meets your criteria), a claim authority signs an attestation. The user submits that attestation to claim tokens.
+
+```go
+recipient := "0x1234..."  // Ethereum address of the recipient
+amount := uint64(1000)
+specifier := "user_123_listen" // Unique per claim (e.g. user + action)
+
+attestation, err := oap.Rewards.GetRewardAttestation(ctx, &v1.GetRewardAttestationRequest{
+	EthRecipientAddress: recipient,
+	Amount:              amount,
+	RewardAddress:       reward.Address,
+	RewardId:            "fan-drop-001",
+	Specifier:           specifier,
+	ClaimAuthority:      oap.Address(),
+	AmountDecimals:      9, // match the reward token's decimals
+})
+if err != nil {
+	log.Fatalf("failed to get attestation: %v", err)
+}
+// Give attestation.Attestation to the user—they use it to claim
+fmt.Printf("attestation: %s\n", attestation.Attestation)
+```
+
+The claim authority's private key is used to sign the claim. Your server holds that key and issues attestations only when your logic (auth, eligibility, rate limits) allows. The `Specifier` uniquely identifies each claim so the same user cannot redeem the same attestation twice.
+
+---
+
+## Next steps
+
+- Link reward pools to Artist Coins: when you [launch an Artist Coin](/tutorials/launch-artist-coins), a reward pool is created for that mint. You can create additional pools for campaigns.
+- Use the attestation in your claim flow: the user submits the signed attestation to the rewards program to receive tokens.

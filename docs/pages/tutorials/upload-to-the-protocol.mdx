@@ -1,0 +1,176 @@
+<img style={{ borderRadius: "10px", overflow: "hidden" }} src="/orbs.png" />
+
+# Upload to the Protocol
+
+This guide shows how to upload audio files to the Open Audio Protocol using Go. You'll use two methods: the regular HTTP upload and the resumable TUS upload. Both produce a transcoded CID you can use when creating tracks or releases.
+
+## Prerequisites
+
+- Go 1.21+
+- A node endpoint (e.g. devnet `https://node1.oap.devnet` or production `https://creatornode.audius.co`)
+- An Ethereum secp256k1 private key to sign uploads
+
+---
+
+## Regular upload (POST /uploads)
+
+The regular upload sends the file in one request. You compute the file's CID, sign it to prove ownership, then POST to the node's `/uploads` endpoint. The node transcodes the audio (e.g. to 320kbps MP3) and stores it in Mediorum.
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/common"
+	"github.com/OpenAudio/go-openaudio/pkg/hashes"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk/mediorum"
+	"google.golang.org/protobuf/proto"
+)
+
+func main() {
+	ctx := context.Background()
+	serverAddr := "https://node1.oap.devnet"
+	privKeyPath := "path/to/your/private_key.txt"
+	audioPath := "my-track.mp3"
+
+	auds := sdk.NewOpenAudioSDK(serverAddr)
+	if err := auds.Init(ctx); err != nil {
+		log.Fatalf("failed to init SDK: %v", err)
+	}
+	if err := auds.ReadPrivKey(privKeyPath); err != nil {
+		log.Fatalf("failed to read private key: %v", err)
+	}
+
+	audioFile, err := os.Open(audioPath)
+	if err != nil {
+		log.Fatalf("failed to open audio file: %v", err)
+	}
+	defer audioFile.Close()
+
+	// 1. Compute file CID (content-addressable identifier)
+	fileCID, err := hashes.ComputeFileCID(audioFile)
+	if err != nil {
+		log.Fatalf("failed to compute file CID: %v", err)
+	}
+	audioFile.Seek(0, 0)
+
+	// 2. Sign the CID to authorize the upload
+	uploadSigData := &corev1.UploadSignature{Cid: fileCID}
+	uploadSigBytes, err := proto.Marshal(uploadSigData)
+	if err != nil {
+		log.Fatalf("failed to marshal upload signature: %v", err)
+	}
+	uploadSignature, err := common.EthSign(auds.PrivKey(), uploadSigBytes)
+	if err != nil {
+		log.Fatalf("failed to sign upload: %v", err)
+	}
+
+	// 3. Upload with signature; wait for transcode
+	uploadOpts := &mediorum.UploadOptions{
+		Template:          "audio",
+		Signature:         uploadSignature,
+		WaitForTranscode:  true,
+		WaitForFileUpload: false,
+		OriginalCID:       fileCID,
+	}
+
+	uploads, err := auds.Mediorum.UploadFile(ctx, audioFile, "my-track.mp3", uploadOpts)
+	if err != nil {
+		log.Fatalf("failed to upload file: %v", err)
+	}
+	if len(uploads) == 0 {
+		log.Fatal("no uploads returned")
+	}
+	if uploads[0].Status != "done" {
+		log.Fatalf("upload failed: %s", uploads[0].Error)
+	}
+
+	transcodedCID := uploads[0].GetTranscodedCID()
+	log.Printf("uploaded transcoded CID: %s", transcodedCID)
+}
+```
+
+---
+
+## Resumable upload (TUS)
+
+The TUS protocol supports resumable uploads: if the connection drops, the client can resume from the last byte. This is better for large files or unstable networks.
+
+```go
+package main
+
+import (
+	"context"
+	"io"
+	"log"
+	"os"
+
+	"connectrpc.com/connect"
+	v1storage "github.com/OpenAudio/go-openaudio/pkg/api/storage/v1"
+	"github.com/OpenAudio/go-openaudio/pkg/sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	serverAddr := "https://node1.oap.devnet"
+	privKeyPath := "path/to/your/private_key.txt"
+	audioPath := "my-track.mp3"
+
+	auds := sdk.NewOpenAudioSDK(serverAddr)
+	if err := auds.Init(ctx); err != nil {
+		log.Fatalf("failed to init SDK: %v", err)
+	}
+	if err := auds.ReadPrivKey(privKeyPath); err != nil {
+		log.Fatalf("failed to read private key: %v", err)
+	}
+
+	audioFile, err := os.Open(audioPath)
+	if err != nil {
+		log.Fatalf("failed to open file: %v", err)
+	}
+	defer audioFile.Close()
+
+	audioData, err := io.ReadAll(audioFile)
+	if err != nil {
+		log.Fatalf("failed to read file: %v", err)
+	}
+
+	res, err := auds.Storage.UploadFilesTus(ctx, connect.NewRequest(&v1storage.UploadFilesRequest{
+		UserWallet: auds.Address(),
+		Template:   "audio",
+		Files: []*v1storage.File{
+			{
+				Filename: "my-track.mp3",
+				Data:     audioData,
+			},
+		},
+	}))
+	if err != nil {
+		log.Fatalf("failed to upload: %v", err)
+	}
+	if len(res.Msg.Uploads) == 0 {
+		log.Fatalf("no upload returned")
+	}
+
+	upload := res.Msg.Uploads[0]
+	// Use transcoded CID if available, otherwise original
+	cid := upload.OrigFileCid
+	if tc, ok := upload.TranscodeResults["320"]; ok && tc != "" {
+		cid = tc
+	}
+	log.Printf("uploaded CID: %s", cid)
+}
+```
+
+`UploadFilesTus` streams the file via TUS, polls until transcoding finishes, and returns the upload with `OrigFileCid` and `TranscodeResults`. For audio, the `320` key holds the transcoded MP3 CID.
+
+---
+
+## Next steps
+
+Once you have a transcoded CID, you can use it when creating tracks or releases via the Entity Manager or DDEX wire protocol. See [Gate release access](/tutorials/gate-release-access) for gated distribution, or the [Wire Protocol](/concepts/wire-protocol) for release formats.

@@ -1,3 +1,113 @@
-# Launching Artist Coins
+<img style={{ borderRadius: "10px", overflow: "hidden" }} src="/orbs.png" />
 
-Coming soon.
+# Launch Artist Coins
+
+Launch your own Artist Coin and own the economy of your brand. Artist Coins are Solana tokens paired against \$AUDIO with a bonding curve—fair launch, instant trading, graduation to AMM at 1M \$AUDIO market cap. See [Artist Coins](/concepts/artist-coins) for the full tokenomics and flywheel.
+
+## What You Need
+
+| Parameter               | Required | Description                                             |
+| ----------------------- | -------- | ------------------------------------------------------- |
+| `name`                  | Yes      | Coin name (e.g. "Artist Name Coin")                     |
+| `symbol`                | Yes      | Ticker (e.g. "ARTIST")                                  |
+| `description`           | Yes      | Short description for metadata                          |
+| `image`                 | Yes      | Square image (PNG, up to 1000×1000)                     |
+| `creatorWallet`         | Yes      | Solana public key of the artist                         |
+| `initialBuyAmountAudio` | No       | Optional first buy in \$AUDIO (raw amount, no decimals) |
+
+All Artist Coins share the same curve config: 1B supply, 9 decimals, paired to \$AUDIO, 50% of supply to creator vesting over 5 years, graduation at 1M \$AUDIO.
+
+## Launch Flow
+
+1. **Metadata** — Build token metadata (name, symbol, description, image URL). Upload image and JSON to a decentralized store (e.g. Irys/Arweave).
+2. **Config** — Create a bonding curve config on Meteora's Dynamic Bonding Curve program. The config defines the curve shape, graduation threshold, vesting schedule, and fee split.
+3. **Pool + First Buy** — Create the pool with your mint and config, then optionally execute the creator's first buy in the same flow.
+4. **Reward Pool** — Create a reward pool for the coin (used for fan campaigns and programmable distribution).
+
+The pool is created with your wallet as `poolCreator`, so you own the launch. The config is created by an authorized launchpad partner that has integrated with the OAP infrastructure.
+
+## TypeScript Sketch
+
+Using `@meteora-ag/dynamic-bonding-curve-sdk` and Solana web3, the structure looks like:
+
+```typescript
+import { DynamicBondingCurveClient } from "@meteora-ag/dynamic-bonding-curve-sdk";
+import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+
+const AUDIO_MINT = new PublicKey(
+  "9LzCMqDgTKYz9Drzqnpgee3SGa89up3a247ypMj2xrqM",
+);
+
+// 1. Create config (curve design, graduation, vesting)
+const configKeypair = Keypair.generate();
+const createConfigTx = await dbcClient.partner.createConfig({
+  payer: authorityKeypair.publicKey,
+  config: configKeypair.publicKey,
+  quoteMint: AUDIO_MINT,
+  tokenSupply: {
+    preMigrationTokenSupply: new BN("1000000000000000000"),
+    postMigrationTokenSupply: new BN("1000000000000000000"),
+  },
+  tokenDecimal: 9,
+  sqrtStartPrice: new BN("58333726687135160"),
+  curve: [
+    { sqrtPrice: new BN("49454822942198928"), liquidity: new BN("316151256542714767379182355742720") },
+    { sqrtPrice: new BN("67463150367941992"), liquidity: new BN("1034142099640443506675420695101440") },
+    { sqrtPrice: new BN("81589054430670160"), liquidity: new BN("1993482779222476007980168292335616") },
+    { sqrtPrice: new BN("93607002666542880"), liquidity: new BN("3426004632472395272977352402927616") },
+    { sqrtPrice: new BN("104248587969034256"), liquidity: new BN("5527075263389051486360336718626816") },
+    { sqrtPrice: new BN("113900242488156192"), liquidity: new BN("8548850210158313829039805609017344") },
+    { sqrtPrice: new BN("122795612235063552"), liquidity: new BN("12820672237426984956983602256543744") },
+    { sqrtPrice: new BN("131088746769154048"), liquidity: new BN("18771222513185901677116104399388672") },
+    { sqrtPrice: new BN("138887568467558320"), liquidity: new BN("26955439896665360498417791527813120") },
+    { sqrtPrice: new BN("146271165374977472"), liquidity: new BN("38087728759187777947138400779763712") },
+    { sqrtPrice: new BN("153299546527304896"), liquidity: new BN("53082960253944572826836697362726912") },
+    { sqrtPrice: new BN("160019524155024992"), liquidity: new BN("73107000099851162532571430724304896") },
+    { sqrtPrice: new BN("166468451233631424"), liquidity: new BN("99638821061952779942546313536602112") },
+    { sqrtPrice: new BN("172676699069235264"), liquidity: new BN("134546659677401790102417975826972672") },
+    { sqrtPrice: new BN("178669358164097472"), liquidity: new BN("180181158020974273473618784576077824") },
+    { sqrtPrice: new BN("184467440737095520"), liquidity: new BN("239489003397306076375008380274606080") },
+  ],
+  migrationQuoteThreshold: new BN("20000000000000"), // ~1M AUDIO graduation
+  lockedVesting: {
+    amountPerPeriod: new BN(500_000_000)
+      .mul(new BN(10).pow(new BN(9)))
+      .div(new BN(5 * 365)),
+    frequency: new BN(24 * 60 * 60),
+    numberOfPeriod: new BN(5 * 365),
+  },
+  creatorTradingFeePercentage: 50,
+  partnerLockedLpPercentage: 50,
+  creatorLockedLpPercentage: 50,
+});
+
+// 2. Create pool + optional first buy
+const mintKeypair = Keypair.generate();
+const { createPoolTx, swapBuyTx } = await dbcClient.pool.createPoolWithFirstBuy(
+  {
+    createPoolParam: {
+      config: configKeypair.publicKey,
+      name: "My Coin",
+      symbol: "MYCOIN",
+      uri: metadataUri,
+      poolCreator: creatorWallet,
+      baseMint: mintKeypair.publicKey,
+      payer: creatorWallet,
+    },
+    firstBuyParam: initialBuyAmountAudio
+      ? { buyer: creatorWallet, buyAmount: new BN(initialBuyAmountAudio) }
+      : undefined,
+  },
+);
+```
+
+The creator signs `createPoolTx` (and `swapBuyTx` if doing an initial buy). After the pool is live, a reward pool is created for the mint.
+
+## Where to Launch
+
+The [Audius launchpad](https://audius.co/coins) provides a UI to launch coins. Because the infrastructure is open—Meteora DBC, Solana, reward pools—any app can integrate. Build your own frontend or automation, or use existing tools.
+
+:::tip
+Artist Coins graduate to an AMM when they hit 1M \$AUDIO market cap. Until then, they trade on the bonding curve. Post-graduation, 50% of supply vests to the artist linearly over 5 years.
+:::

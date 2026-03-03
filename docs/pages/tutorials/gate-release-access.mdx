@@ -1,3 +1,493 @@
+<img style={{ borderRadius: "10px", overflow: "hidden" }} src="/chips.png" />
+
 # Gate Release Access
 
-Coming soon.
+This guide will walk you through how to release a track on the Open Audio Protocol that has gated release access—where only requests you authorize can stream the audio. You'll build an "access server" that signs stream URLs on behalf of your users, giving you full control over who can access the content.
+
+## How It Works
+
+With **programmable distribution**, you upload a track and specify one or more wallet addresses as `access_authorities`. Only those addresses can sign requests to stream the track. The node rejects unsigned or wrongly signed requests with 401.
+
+Your **access server** holds the signing key. When a user hits your server (e.g. `/stream`), you verify they're allowed (e.g. logged in, paid, follows you) and, if so, sign a short-lived stream URL and redirect them to the node. The node validates your signature and serves the audio. Without your server, direct requests to the node fail.
+
+## Prerequisites
+
+- Go 1.21+
+- Access to a production validator node (e.g. `creatornode.audius.co`)
+
+---
+
+## Step 1: Upload the audio
+
+Upload your audio file to Mediorum and get back a transcoded CID. The node transcodes to the formats it will serve. For the full upload flow (including resumable TUS), see [Upload to the protocol](/tutorials/upload-to-the-protocol).
+
+```go
+audioFile, err := os.Open("my-track.mp3")
+if err != nil {
+    log.Fatalf("failed to open audio file: %v", err)
+}
+defer audioFile.Close()
+
+fileCID, err := hashes.ComputeFileCID(audioFile)
+if err != nil {
+    log.Fatalf("failed to compute file CID: %v", err)
+}
+audioFile.Seek(0, 0)
+
+uploadSigData := &corev1.UploadSignature{Cid: fileCID}
+uploadSigBytes, err := proto.Marshal(uploadSigData)
+if err != nil {
+    log.Fatalf("failed to marshal upload signature: %v", err)
+}
+uploadSignature, err := common.EthSign(auds.PrivKey(), uploadSigBytes)
+if err != nil {
+    log.Fatalf("failed to sign upload: %v", err)
+}
+
+uploadOpts := &mediorum.UploadOptions{
+    Template:          "audio",
+    Signature:         uploadSignature,
+    WaitForTranscode:  true,
+    WaitForFileUpload: false,
+    OriginalCID:       fileCID,
+}
+uploads, err := auds.Mediorum.UploadFile(ctx, audioFile, "my-track.mp3", uploadOpts)
+if err != nil {
+    log.Fatalf("failed to upload file: %v", err)
+}
+if len(uploads) == 0 {
+    log.Fatal("no uploads returned")
+}
+transcodedCID := uploads[0].GetTranscodedCID()
+```
+
+---
+
+## Step 2: Create the track with access_authorities
+
+Create a Track entity via ManageEntity and set `access_authorities` to your signing wallet(s). Only those wallets can authorize stream requests.
+
+```go
+signerAddress := auds.Address()
+entityID := time.Now().UnixNano() % 1000000
+if entityID < 0 {
+    entityID = -entityID
+}
+
+metadata := map[string]interface{}{
+    "cid":                "",
+    "access_authorities": []string{signerAddress},  // your server's wallet
+    "data": map[string]interface{}{
+        "title":        "Gated Track",
+        "genre":        "Electronic",
+        "release_date": time.Now().Format("2006-01-02"),
+        "track_cid":    transcodedCID,
+        "owner_id":     1,
+    },
+}
+metadataJSON, _ := json.Marshal(metadata)
+
+manageEntity := &corev1.ManageEntityLegacy{
+    UserId:     1,
+    EntityType: "Track",
+    EntityId:   entityID,
+    Action:     "Create",
+    Metadata:   string(metadataJSON),
+    Nonce:      fmt.Sprintf("0x%064x", entityID),
+    Signer:     "",
+}
+cfg := &config.Config{
+    AcdcEntityManagerAddress: config.ProdAcdcAddress,
+    AcdcChainID:              config.ProdAcdcChainID,
+}
+server.SignManageEntity(cfg, manageEntity, auds.PrivKey())
+
+stx := &corev1.SignedTransaction{
+    RequestId: uuid.NewString(),
+    Transaction: &corev1.SignedTransaction_ManageEntity{
+        ManageEntity: manageEntity,
+    },
+}
+auds.Core.SendTransaction(ctx, connect.NewRequest(&corev1.SendTransactionRequest{
+    Transaction: stx,
+}))
+```
+
+---
+
+## Step 3: Build the access server
+
+The server signs stream URLs when users are authorized. The signature format is JCS-canonicalized JSON plus an Ethereum personal sign.
+
+```go
+type StreamHandler struct {
+    privateKey  *ecdsa.PrivateKey
+    trackID     int64
+    cid         string
+    nodeBaseURL string
+}
+
+func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    sigData := &signature.SignatureData{
+        Cid:         h.cid,
+        Timestamp:   time.Now().UnixMilli(),
+        UploadID:    "",
+        ShouldCache: 0,
+        TrackId:     h.trackID,
+        UserID:      0,
+    }
+    sigStr, err := signature.GenerateQueryStringFromSignatureData(sigData, h.privateKey)
+    if err != nil {
+        http.Error(w, "failed to sign", http.StatusInternalServerError)
+        return
+    }
+    streamURL := fmt.Sprintf("%s/tracks/stream/%d?signature=%s",
+        h.nodeBaseURL, h.trackID, url.QueryEscape(sigStr))
+    http.Redirect(w, r, streamURL, http.StatusFound)
+}
+```
+
+---
+
+## Full Go example
+
+```go
+package main
+
+import (
+    "context"
+    "crypto/ecdsa"
+    "encoding/json"
+    "flag"
+    "fmt"
+    "log"
+    "net/http"
+    "net/url"
+    "os"
+    "time"
+
+    "connectrpc.com/connect"
+    corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+    "github.com/OpenAudio/go-openaudio/pkg/common"
+    "github.com/OpenAudio/go-openaudio/pkg/core/config"
+    "github.com/OpenAudio/go-openaudio/pkg/core/server"
+    "github.com/OpenAudio/go-openaudio/pkg/hashes"
+    "github.com/OpenAudio/go-openaudio/pkg/mediorum/server/signature"
+    "github.com/OpenAudio/go-openaudio/pkg/sdk"
+    "github.com/OpenAudio/go-openaudio/pkg/sdk/mediorum"
+    "github.com/ethereum/go-ethereum/crypto"
+    "github.com/google/uuid"
+    "google.golang.org/protobuf/proto"
+)
+
+func main() {
+    ctx := context.Background()
+    validator := flag.String("validator", "creatornode.audius.co", "Validator endpoint")
+    port := flag.String("port", "8800", "Server port")
+    flag.Parse()
+
+    signerKey, _ := crypto.GenerateKey()
+    auds := sdk.NewOpenAudioSDK(*validator)
+    auds.Init(ctx)
+    auds.SetPrivKey(signerKey)
+
+    cid, trackID, err := uploadGatedTrack(ctx, auds)
+    if err != nil {
+        log.Fatalf("upload failed: %v", err)
+    }
+
+    nodeBaseURL := fmt.Sprintf("https://%s", *validator)
+    handler := &StreamHandler{
+        privateKey:  signerKey,
+        trackID:     trackID,
+        cid:         cid,
+        nodeBaseURL: nodeBaseURL,
+    }
+
+    http.Handle("/stream", handler)
+    log.Printf("Stream at http://localhost:%s/stream", *port)
+    http.ListenAndServe(":"+*port, nil)
+}
+
+type StreamHandler struct {
+    privateKey  *ecdsa.PrivateKey
+    trackID     int64
+    cid         string
+    nodeBaseURL string
+}
+
+func (h *StreamHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    sigData := &signature.SignatureData{
+        Cid: h.cid, Timestamp: time.Now().UnixMilli(),
+        UploadID: "", ShouldCache: 0, TrackId: h.trackID, UserID: 0,
+    }
+    sigStr, err := signature.GenerateQueryStringFromSignatureData(sigData, h.privateKey)
+    if err != nil {
+        http.Error(w, "failed to sign", http.StatusInternalServerError)
+        return
+    }
+    u := fmt.Sprintf("%s/tracks/stream/%d?signature=%s",
+        h.nodeBaseURL, h.trackID, url.QueryEscape(sigStr))
+    http.Redirect(w, r, u, http.StatusFound)
+}
+
+func uploadGatedTrack(ctx context.Context, auds *sdk.OpenAudioSDK) (string, int64, error) {
+    audioFile, _ := os.Open("my-track.mp3")
+    defer audioFile.Close()
+
+    fileCID, _ := hashes.ComputeFileCID(audioFile)
+    audioFile.Seek(0, 0)
+
+    uploadSigData := &corev1.UploadSignature{Cid: fileCID}
+    uploadSigBytes, _ := proto.Marshal(uploadSigData)
+    uploadSignature, _ := common.EthSign(auds.PrivKey(), uploadSigBytes)
+
+    uploads, _ := auds.Mediorum.UploadFile(ctx, audioFile, "my-track.mp3", &mediorum.UploadOptions{
+        Template: "audio", Signature: uploadSignature,
+        WaitForTranscode: true, WaitForFileUpload: true, OriginalCID: fileCID,
+    })
+    transcodedCID := uploads[0].GetTranscodedCID()
+    signerAddress := auds.Address()
+    entityID := time.Now().UnixNano() % 1000000
+    if entityID < 0 {
+        entityID = -entityID
+    }
+
+    metadata := map[string]interface{}{
+        "cid": "", "access_authorities": []string{signerAddress},
+        "data": map[string]interface{}{
+            "title": "Gated Track", "genre": "Electronic",
+            "release_date": time.Now().Format("2006-01-02"),
+            "track_cid": transcodedCID, "owner_id": 1,
+        },
+    }
+    metadataJSON, _ := json.Marshal(metadata)
+
+    manageEntity := &corev1.ManageEntityLegacy{
+        UserId: 1, EntityType: "Track", EntityId: entityID, Action: "Create",
+        Metadata: string(metadataJSON), Nonce: fmt.Sprintf("0x%064x", entityID), Signer: "",
+    }
+    cfg := &config.Config{
+        AcdcEntityManagerAddress: config.ProdAcdcAddress,
+        AcdcChainID:              config.ProdAcdcChainID,
+    }
+    server.SignManageEntity(cfg, manageEntity, auds.PrivKey())
+
+    stx := &corev1.SignedTransaction{
+        RequestId: uuid.NewString(),
+        Transaction: &corev1.SignedTransaction_ManageEntity{ManageEntity: manageEntity},
+    }
+    _, err := auds.Core.SendTransaction(ctx, connect.NewRequest(&corev1.SendTransactionRequest{
+        Transaction: stx,
+    }))
+    return transcodedCID, entityID, err
+}
+```
+
+Run with `go run . -validator creatornode.audius.co`. Test with `curl -L http://localhost:8800/stream`.
+
+---
+
+## Geo-gated example: Bozeman only
+
+The following examples implement a track that is only streamable in **Bozeman, Montana**. Requests from other regions receive 403 Forbidden. Both Cloudflare Workers and Vercel expose request geo (city, region, country) that we check before signing.
+
+---
+
+## Deploy to edge: Cloudflare Worker
+
+<details>
+<summary>Cloudflare Worker — Bozeman-only stream</summary>
+
+Deploy an access server on Cloudflare Workers. Uses `request.cf?.city` for geo. Only signs and redirects when the request originates from Bozeman; otherwise returns 403.
+
+```typescript
+// worker.ts - Cloudflare Worker (Bozeman-only)
+import { keccak256 } from "@noble/hashes/sha3";
+import { secp256k1 } from "@noble/curves/secp256k1";
+import { hexToBytes, utf8ToBytes, concatBytes } from "@noble/hashes/utils";
+import canonicalize from "canonicalize";
+
+export interface Env {
+  SIGNER_PRIVATE_KEY: string;
+  NODE_BASE_URL: string;
+  TRACK_ID: string;
+  CID: string;
+}
+
+interface SignatureData {
+  upload_id: string;
+  cid: string;
+  shouldCache: number;
+  timestamp: number;
+  trackId: number;
+  userId: number;
+}
+
+function ethSignedMessageHash(msgBytes: Uint8Array): Uint8Array {
+  const prefix = new TextEncoder().encode(
+    `\x19Ethereum Signed Message:\n${msgBytes.length}`,
+  );
+  return keccak256(concatBytes(prefix, msgBytes));
+}
+
+function signStreamUrl(env: Env): string {
+  const data: SignatureData = {
+    upload_id: "",
+    cid: env.CID,
+    shouldCache: 0,
+    timestamp: Date.now(),
+    trackId: parseInt(env.TRACK_ID, 10),
+    userId: 0,
+  };
+  const canonical = canonicalize(data);
+  if (!canonical) throw new Error("canonicalize failed");
+  const hash = keccak256(utf8ToBytes(canonical));
+  const hashToSign = ethSignedMessageHash(hash);
+  const pk = hexToBytes(
+    env.SIGNER_PRIVATE_KEY.replace(/^0x/, "").padStart(64, "0"),
+  );
+  const sig = secp256k1.sign(hashToSign, pk);
+  const r = sig.r;
+  const s = sig.s;
+  let v = sig.recovery + 27;
+  const sigHex =
+    "0x" +
+    r.toString(16).padStart(64, "0") +
+    s.toString(16).padStart(64, "0") +
+    v.toString(16).padStart(2, "0");
+  const envelope = JSON.stringify({
+    data: JSON.stringify(data),
+    signature: sigHex,
+  });
+  return `${env.NODE_BASE_URL}/tracks/stream/${env.TRACK_ID}?signature=${encodeURIComponent(envelope)}`;
+}
+
+export default {
+  async fetch(req: Request, env: Env): Promise<Response> {
+    const url = new URL(req.url);
+    if (url.pathname === "/stream") {
+      const city = (req as Request & { cf?: { city?: string } }).cf?.city ?? "";
+      if (!city.toLowerCase().includes("bozeman")) {
+        return new Response(
+          JSON.stringify({
+            error: "Stream only available in Bozeman, Montana",
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      const streamUrl = signStreamUrl(env);
+      return Response.redirect(streamUrl, 302);
+    }
+    return new Response("Not found", { status: 404 });
+  },
+};
+```
+
+Deploy with `wrangler deploy`. Set `SIGNER_PRIVATE_KEY`, `NODE_BASE_URL`, `TRACK_ID`, and `CID` as secrets.
+
+</details>
+
+---
+
+## Deploy to edge: Vercel Serverless
+
+<details>
+<summary>Vercel Serverless Function — Bozeman-only stream</summary>
+
+Deploy as a Vercel serverless function. Uses `request.geo?.city` (from Vercel Edge) for geo. Only signs and redirects when the request originates from Bozeman; otherwise returns 403.
+
+```typescript
+// api/stream/route.ts - Vercel App Router (Bozeman-only)
+import { NextRequest, NextResponse } from "next/server";
+import { keccak256 } from "@noble/hashes/sha3";
+import { secp256k1 } from "@noble/curves/secp256k1";
+import { hexToBytes, utf8ToBytes, concatBytes } from "@noble/hashes/utils";
+import canonicalize from "canonicalize";
+
+export const runtime = "edge"; // req.geo requires Edge
+
+interface SignatureData {
+  upload_id: string;
+  cid: string;
+  shouldCache: number;
+  timestamp: number;
+  trackId: number;
+  userId: number;
+}
+
+function ethSignedMessageHash(msgBytes: Uint8Array): Uint8Array {
+  const prefix = new TextEncoder().encode(
+    `\x19Ethereum Signed Message:\n${msgBytes.length}`,
+  );
+  return keccak256(concatBytes(prefix, msgBytes));
+}
+
+function generateSignature(
+  cid: string,
+  trackId: number,
+  privateKeyHex: string,
+): string {
+  const data: SignatureData = {
+    upload_id: "",
+    cid,
+    shouldCache: 0,
+    timestamp: Date.now(),
+    trackId,
+    userId: 0,
+  };
+  const canonical = canonicalize(data);
+  if (!canonical) throw new Error("canonicalize failed");
+  const hash = keccak256(utf8ToBytes(canonical));
+  const hashToSign = ethSignedMessageHash(hash);
+  const pk = hexToBytes(privateKeyHex.replace(/^0x/, "").padStart(64, "0"));
+  const sig = secp256k1.sign(hashToSign, pk);
+  const r = sig.r;
+  const s = sig.s;
+  let v = sig.recovery + 27;
+  const sigHex =
+    "0x" +
+    r.toString(16).padStart(64, "0") +
+    s.toString(16).padStart(64, "0") +
+    v.toString(16).padStart(2, "0");
+  return encodeURIComponent(
+    JSON.stringify({ data: JSON.stringify(data), signature: sigHex }),
+  );
+}
+
+export async function GET(req: NextRequest) {
+  const pk = process.env.SIGNER_PRIVATE_KEY;
+  const baseUrl = process.env.NODE_BASE_URL;
+  const trackId = process.env.TRACK_ID;
+  const cid = process.env.CID;
+  if (!pk || !baseUrl || !trackId || !cid) {
+    return NextResponse.json({ error: "Missing config" }, { status: 500 });
+  }
+
+  const city = req.geo?.city ?? "";
+  if (!city.toLowerCase().includes("bozeman")) {
+    return NextResponse.json(
+      { error: "Stream only available in Bozeman, Montana" },
+      { status: 403 },
+    );
+  }
+
+  const sig = generateSignature(cid, parseInt(trackId, 10), pk);
+  const streamUrl = `${baseUrl}/tracks/stream/${trackId}?signature=${sig}`;
+  return NextResponse.redirect(streamUrl, 302);
+}
+```
+
+Install: `npm install @noble/hashes @noble/curves/secp256k1 canonicalize`. Set `SIGNER_PRIVATE_KEY`, `NODE_BASE_URL`, `TRACK_ID`, and `CID` in Vercel environment variables. Deploy with Edge Runtime (included above) so `req.geo` is available.
+
+</details>
+
+---
+
+## Next steps
+
+- Use multiple `access_authorities` if you have several signing servers
+- For DDEX/ERN-based tracks, use `GetStreamURLs` instead of the track signature format—see `examples/programmable-distribution-ddex` in go-openaudio

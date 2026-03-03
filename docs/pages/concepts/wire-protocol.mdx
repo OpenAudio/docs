@@ -1,12 +1,18 @@
-<img style={{ borderRadius: '10px', overflow: 'hidden' }} src='/pipes.png' />
+<img style={{ borderRadius: "10px", overflow: "hidden" }} src="/pipes.png" />
 
 # Wire Protocol
 
-The Open Audio wire protocol is built on [DDEX](https://ddex.net/standards/), a widely-used music industry standard for distributing release information and reporting usage. OAP extends DDEX with cryptographic primitives like address keypairs and message signing to enable permissionless operation on a decentralized network.
+The Open Audio wire protocol supports two message formats: **DDEX** (industry-standard release metadata) and **Entity Manager** (Audius-style entity CRUD). Both use the same consensus pipeline—messages flow through node RPC, are broadcast via gossip, proposed in blocks by validators, and committed after consensus.
 
-The protocol is implemented in protobuf via [ddex-proto](https://github.com/OpenAudio/ddex-proto) and published to the [Buf Registry](https://buf.build/openaudio/ddex). Messages flow through node's rpc, broadcasted via gossip, are proposed in blocks by validators, and committed to the chain after consensus.
+---
 
-## Transaction Structure
+## DDEX
+
+The DDEX format is built on [DDEX](https://ddex.net/standards/), a widely-used music industry standard for distributing release information and reporting usage. OAP extends DDEX with cryptographic primitives like address keypairs and message signing to enable permissionless operation on a decentralized network.
+
+The protocol is implemented in protobuf via [ddex-proto](https://github.com/OpenAudio/ddex-proto) and published to the [Buf Registry](https://buf.build/openaudio/ddex).
+
+### Transaction Structure
 
 All messages on OAP are wrapped in a transaction envelope that includes chain metadata and a signature provided by the sender. The `SignedTransaction` contains the serialized `Transaction` payload and it's accompanying signature. The transaction header includes chain ID, nonce, gas parameters, and the signer's address. The body uses a oneof field to support different message types.
 
@@ -132,11 +138,11 @@ func submitTransaction(signedTx *chain.SignedTransaction) error {
 
 The network validates that the signature matches the signer address in the header. This cryptographic proof is what makes OAP permissionless while still maintaining identity verification.
 
-## DDEX Message Types
+### DDEX Message Types
 
-### ERN
+#### ERN
 
-[DDEX ERN](https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/) (Electronic Release Notification) is the primary message type in DDEX. It contains all the details around a release across four top-level entities:
+[DDEX ERN](<https://kb.ddex.net/implementing-each-standard/electronic-release-notification-message-suite-(ern)/>) (Electronic Release Notification) is the primary message type in DDEX. It contains all the details around a release across four top-level entities:
 
 1. **Party**: Artists, collaborators, sound engineers, writers, and other contributors to the release.
 2. **Resource**: Media files, album art, bitrate, file format, and other low-level artifacts. Contains the CID that is uploaded through the storage protocol.
@@ -194,9 +200,9 @@ A release ties everything together. It references the parties involved, lists th
 
 Deals define how a release can be distributed and consumed. They specify territories, usage types (streaming, download, physical), price tiers, and availability windows. A single release might have multiple deals for different regions or platforms.
 
-### MEAD
+#### MEAD
 
-[DDEX MEAD](https://kb.ddex.net/implementing-each-standard/media-enrichment-and-description-(mead)/) (Media Enrichment and Description) extends release metadata with additional descriptive information. While ERNs establish the core structure of a release, MEADs allow ongoing enrichment with things like mood classifications, extended genre tags, promotional text, and other metadata that enhances discoverability.
+[DDEX MEAD](<https://kb.ddex.net/implementing-each-standard/media-enrichment-and-description-(mead)/>) (Media Enrichment and Description) extends release metadata with additional descriptive information. While ERNs establish the core structure of a release, MEADs allow ongoing enrichment with things like mood classifications, extended genre tags, promotional text, and other metadata that enhances discoverability.
 
 OAP's implementation leverages the protocol's decentralized nature. Any party can submit MEAD messages to enrich metadata for any release on the network. This creates a collaborative tagging system where fans, curators, and distributors can all contribute. The chain stores all submitted MEADs, but indexers decide which to trust and display.
 
@@ -222,9 +228,9 @@ message ResourceInformation {
 }
 ```
 
-### PIE
+#### PIE
 
-[DDEX PIE](https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/) (Party Identification and Enrichment) augments party profiles with biographical data, social media links, and cross-platform identifiers. PIE messages can include social handles, biographical information, additional identifiers from music databases, and other party-specific metadata. This creates a distributed identity system where parties are enriched with information from multiple sources over time.
+[DDEX PIE](<https://kb.ddex.net/implementing-each-standard/party-identification-and-enrichment-(pie)/>) (Party Identification and Enrichment) augments party profiles with biographical data, social media links, and cross-platform identifiers. PIE messages can include social handles, biographical information, additional identifiers from music databases, and other party-specific metadata. This creates a distributed identity system where parties are enriched with information from multiple sources over time.
 
 Like MEADs, any address can submit PIE messages about any party. This enables a crowdsourced approach where fans, industry professionals, and automated systems all contribute identifying information. The same trust considerations apply: indexers must decide which PIE submissions to consider authoritative.
 
@@ -250,11 +256,11 @@ message Party {
 }
 ```
 
-## Go Example
+### Go Example
 
 Here's how to use the generated Go libraries to create messages for Durante's "[Enter](https://audius.co/ImDurante/album/enter)":
 
-### ERN Message
+#### ERN Message
 
 ERN messages define entities separately and link them together with references. In this example, we create four sound recordings from the 13-track album that get packaged into two different releases: a single containing just one track, and the full album containing all four tracks shown here. We also include an image resource for the album art.
 
@@ -404,7 +410,7 @@ func main() {
 }
 ```
 
-### MEAD Message
+#### MEAD Message
 
 Add enrichment metadata to the title track. Anyone can submit this to add mood, genre, and thematic tags:
 
@@ -440,7 +446,7 @@ func enrichTrack() {
 }
 ```
 
-### PIE Message
+#### PIE Message
 
 Enrich Durante's party profile with biographical information and social links:
 
@@ -472,3 +478,110 @@ func enrichParty() {
     }
 }
 ```
+
+---
+
+## Entity Manager
+
+Entity Manager is a simpler wire format for Create/Update operations on entities like Tracks, Users, and Playlists. It originates from Audius and uses EIP-712 typed signing. Each message specifies an entity type, ID, action, and JSON metadata. The signer's address is recovered from the signature and written into the `signer` field before submission.
+
+### Message Structure
+
+```protobuf
+message ManageEntityLegacy {
+  int64 user_id = 1;
+  string entity_type = 2;
+  int64 entity_id = 3;
+  string action = 4;
+  string metadata = 5;
+  string signature = 6;
+  string signer = 7;
+  string nonce = 8;
+}
+```
+
+`SignedTransaction` wraps it in a oneof alongside other v1 transaction types:
+
+```protobuf
+message SignedTransaction {
+  string signature = 1;
+  string request_id = 2;
+  oneof transaction {
+    ManageEntityLegacy manage_entity = 1003;
+    // ... other types
+  }
+}
+```
+
+### Track Metadata
+
+For `entity_type: "Track"` with `action: "Create"` or `"Update"`, the `metadata` JSON can include:
+
+- **Basic**: `title`, `genre`, `release_date`, `cid` (or `data.track_cid`) — the transcoded audio CID
+- **Programmable distribution**: `access_authorities` — list of wallet addresses that can sign to authorize stream access. If omitted, the signer is used.
+
+### Signing and Sending
+
+Signing uses EIP-712 with the Entity Manager contract domain. The go-openaudio `server.SignManageEntity` helper fills `signer` and `signature`:
+
+```go
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "time"
+
+    "connectrpc.com/connect"
+    corev1 "github.com/OpenAudio/go-openaudio/pkg/api/core/v1"
+    "github.com/OpenAudio/go-openaudio/pkg/core/config"
+    "github.com/OpenAudio/go-openaudio/pkg/core/server"
+    "github.com/OpenAudio/go-openaudio/pkg/sdk"
+    "github.com/google/uuid"
+)
+
+func createTrack(ctx context.Context, auds *sdk.OpenAudioSDK, transcodedCID string) error {
+    entityID := time.Now().UnixNano() % 1000000
+    if entityID < 0 {
+        entityID = -entityID
+    }
+
+    metadata := map[string]interface{}{
+        "title":        "My Track",
+        "genre":        "Electronic",
+        "release_date": "2025-01-15",
+        "cid":          transcodedCID,
+    }
+    metadataJSON, _ := json.Marshal(metadata)
+
+    manageEntity := &corev1.ManageEntityLegacy{
+        UserId:     1,
+        EntityType: "Track",
+        EntityId:   entityID,
+        Action:     "Create",
+        Metadata:   string(metadataJSON),
+        Nonce:      fmt.Sprintf("0x%064x", entityID),
+        Signer:     "",
+    }
+
+    cfg := &config.Config{
+        AcdcEntityManagerAddress: config.DevAcdcAddress,
+        AcdcChainID:              config.DevAcdcChainID,
+    }
+    if err := server.SignManageEntity(cfg, manageEntity, auds.PrivKey()); err != nil {
+        return err
+    }
+
+    stx := &corev1.SignedTransaction{
+        RequestId: uuid.NewString(),
+        Transaction: &corev1.SignedTransaction_ManageEntity{
+            ManageEntity: manageEntity,
+        },
+    }
+    _, err := auds.Core.SendTransaction(ctx, connect.NewRequest(&corev1.SendTransactionRequest{
+        Transaction: stx,
+    }))
+    return err
+}
+```
+
+For programmable distribution, include `access_authorities` in the metadata so only listed wallets can sign stream URLs. See `examples/upload` and `examples/programmable-distribution` in [go-openaudio](https://github.com/OpenAudio/go-openaudio) for full flows, or `apps/packages/sdk` in the Audius monorepo for TypeScript/JS usage.
