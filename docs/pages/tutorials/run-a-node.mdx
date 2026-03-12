@@ -19,7 +19,7 @@ go-openaudio is a single docker container that can be run on most hardware with 
 
 > Stable releases are published monthly at [`openaudio/go-openaudio:stable`](https://hub.docker.com/r/openaudio/go-openaudio).\
 Nightly (edge) builds are tagged by commit hash.\
-$AUDIO governance votes on adoption of versions. That version can be found [here](https://dashboard.audius.org/#/nodes).
+$AUDIO governance votes on adoption of versions. That version can be found [here](https://staking.openaudio.org/#/nodes).
 
 
 It is recommended to provision a VM with at least:
@@ -188,7 +188,7 @@ This change will take a few hours.
 
 A validator node can be registered as soon as it is stood up.
 
-Currently the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes) offers a simple UI to register nodes. You may also elect to use [etherscan directly](https://etherscan.io/address/0xD17A9bc90c582249e211a4f4b16721e7f65156c8#writeProxyContract) using the `register` function.
+Currently the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes) offers a simple UI to register nodes. You may also elect to use [etherscan directly](https://etherscan.io/address/0xD17A9bc90c582249e211a4f4b16721e7f65156c8#writeProxyContract) using the `register` function.
 
 On the protocol dashboard:
 1. Connect a wallet or multisig using wallet connect button at the top of the page
@@ -222,7 +222,7 @@ Registration requires a minimum bond of 200,000 $AUDIO.
 2. Follow the instructions above to create a new validator node
 
 3. Re-register your node
-> 1. Visit the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
+> 1. Visit the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
 > 2. Authenticate with your wallet
 > 3. Click on the node you wish to migrate
 > 4. Click the trash can icon to de-register the node, and type DEREGISTER to confirm
@@ -230,7 +230,7 @@ Registration requires a minimum bond of 200,000 $AUDIO.
 :::warning
 If this is your last node, an unstake request will get created, visible on your operator page. Before continuing, you should cancel that request.
 :::
-> 5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
+> 5. Return to the nodes page of the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
 > 6. Click register a new node
 > 7. Use the same URL and keypair you previously had used for your node
   
@@ -243,11 +243,11 @@ To re-register your node:
 
 **Deregister your existing node**
 
-1. Visit the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
+1. Visit the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
 2. Authenticate with your wallet
 3. Click on the node you wish to migrate
 4. Click the trash can icon to de-register the node, and type DEREGISTER to confirm
-5. Return to the nodes page of the [Audius Protocol Dashboard](https://dashboard.audius.org/#/nodes)
+5. Return to the nodes page of the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
 6. Shut down your existing content node
 
 :::warning

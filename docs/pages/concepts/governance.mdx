@@ -8,7 +8,7 @@ Governance has the ability to control tokenomics of \$AUDIO, staking parameters,
 
 The governance system can be viewed in several places
 * Contract address on [etherscan](https://etherscan.io/address/0x4DEcA517D6817B6510798b7328F2314d3003AbAC#readProxyContract)
-* Audius [protocol dashboard](https://dashboard.audius.org/#/governance)
+* Audius [protocol dashboard](https://staking.openaudio.org/#/governance)
 * Official Graph Protocol [subgraph](https://thegraph.com/explorer/subgraphs/F8TjrYuTLohz64J8uuDke9htSR1aY9TGCuEjJVVjUJaD?view=Query&chain=arbitrum-one)
 
 ## Proposals
@@ -25,7 +25,7 @@ Every governance proposals has the following parameters:
 | `TargetContract`    | The english-name registry key entry for the contract to act on | ServiceTypeManagerProxy                 |
 | `FunctionSignature` | The method on the target contract to invoke                    | addServiceType(bytes32,uint256,unit256) |
 | `CallData`          | The proposal's long-form description                           | 0x76...,200000...,15000000...           |
-> The example proposal from this table can be viewed on the Audius [protocol dashboard](https://dashboard.audius.org/#/governance/proposal/156)
+> The example proposal from this table can be viewed on the Audius [protocol dashboard](https://staking.openaudio.org/#/governance/proposal/156)
 
 Required software versions for the protocol are set by the governance system, in which case changelogs are typically used for proposal descriptions.
 
@@ -47,7 +47,7 @@ Voting quorum is 5% of the total \$AUDIO staked to the network, and proposals pa
 ### Example
 
 Using this
-[governance proposal](https://dashboard.audius.org/#/governance/proposal/9) as an
+[governance proposal](https://staking.openaudio.org/#/governance/proposal/9) as an
 example, you can see that different node operators and delegators voted in favor of extending the
 voting time from 48 to 72 hours.
 
