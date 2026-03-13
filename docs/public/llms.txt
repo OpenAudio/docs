@@ -8,9 +8,11 @@ Index of blog posts. Served at openaudio.org/llms.txt (or docs.openaudio.org/llm
 /blog/introducing-the-open-audio-protocol
 /blog/the-solana-rent-problem
 /blog/programmable-music-for-agents-and-vibecoders
+/blog/powering-friends-and-family-disclosure-record-label
 
 ## Posts
 
 - 2025-10-08 Introducing The Open Audio Protocol — /blog/introducing-the-open-audio-protocol
 - 2025-12-04 Claimable Tokens & The Solana Rent UX Problem — /blog/the-solana-rent-problem
 - 2026-02-25 Programmable Music for Agents and Vibecoders — /blog/programmable-music-for-agents-and-vibecoders — Open Audio Protocol as the programmable music catalog for agents and vibecoders; agents, programmable catalogs, vibecoded future.
+- 2026-03-13 Powering Friends & Family, Disclosure's New Record Label — /blog/powering-friends-and-family-disclosure-record-label — Audius and Friends & Family launch Crate, a modern A&R platform powered by the Open Audio Protocol and Programmable Distribution.

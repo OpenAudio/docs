@@ -1,0 +1,124 @@
+---
+layout: minimal
+date: 2026-03-13
+description: Audius and Friends & Family launch Crate, a modern A&R platform powered by the Open Audio Protocol and Programmable Distribution.
+authors:
+  - "[ray j](https://twitter.com/raymondjacobson)"
+---
+
+import SubstackLink from "../../components/SubstackLink";
+
+<SubstackLink />
+
+# Powering Friends & Family, Disclosure's New Record Label
+
+::authors
+
+<img
+  alt="Friends & Family crate."
+  src="/friends-family-crate-logo.png"
+  width="400"
+/>
+
+This week, **Audius and Friends & Family** launched [Crate](https://crate.is), a modern A&R platform designed to help record labels move faster, review demos efficiently, and sign their next breakout records.
+
+In 2026, the volume of music being created is staggering. The next platinum single could emerge from anywhere, and A&R teams are under increasing pressure to discover, evaluate, and move on opportunities quickly. Traditional demo pipelines built around emails, private links, and scattered messages were never designed for this pace.
+
+Crate changes that.
+
+Designed by the Audius team, Crate is a purpose-built A&R workspace that transforms demo submission and review into a structured, high-signal workflow.
+
+Out of the box, Crate gives label teams the tools they need to triage music quickly:
+
+- **Email-free demo submission and listening**
+- **Timestamped feedback with voice note support**
+- **Keyboard shortcuts for rapid demo triage**
+- **Multi-reviewer A&R collaboration**
+- **Automated feedback delivery to artists**
+- **Release-ready preparation for instant distribution to Audius and other streaming platforms**
+
+<img alt="Crate workflow UI" src="/crate-workflow-ui.png" />
+
+But the most powerful part of Crate isn't just the workflow.
+
+It's what's underneath it: The Open Audio Protocol.
+
+### Enter Open Audio
+
+Alongside the launch of Crate, we're introducing a new capability on the **Open Audio Protocol** called [**Programmable Distribution**](/tutorials/gate-release-access). This feature allows developers and platforms to publish music to the network while **cryptographically controlling how and where it can be accessed**.
+
+The Audius product has experimented with many forms of cryptographic access control in the past, gating music by:
+
+- NFT ownership
+- Crypto tips & payments ($AUDIO, USDC)
+- Social interactions
+
+These systems worked well for specific use cases, but one lesson became clear along the way: Trying to design a protocol interface for every possible access rule isn't scalable. What if an artist wants their single only streamable during a live promotion event? What if an artist wants to geofence where a song can be streamed? What if an artist wants fans to complete challenges to unlock pieces of an album?
+
+Instead, the Open Audio Protocol takes a **developer-first approach**. Rather than defining every rule on-chain, developers can program their own access logic externally while still using the protocol for distribution, indexing, and rights management.
+
+### How Programmable Distribution Works
+
+With Programmable Distribution, a track's metadata transaction can include access authorities: cryptographic addresses authorized to approve playback.
+
+When streaming requests are made, validator nodes in the decentralized network verify that the request includes a valid signature from one of these authorities before serving the audio.
+
+In simpler terms, the protocol handles the distribution and the **developers** control the access.
+
+Example metadata:
+
+```json
+entity_type: track
+action: create
+signer: "0x885ba66083D1ef52d5Caa8bDFFE7b66f4C21E272"
+{
+  "access_authorities": [
+    "0xEC8babb083D1ef52d3Cbb8b211E7b66f4C21E242"
+  ],
+  "data": {
+    "title": "Latch ft. Sam Smith",
+    "owner_id": 117827
+  }
+}
+```
+
+When a track is uploaded with an access authority, the network will only stream that track if the request is signed by an authorized key.
+
+This creates a flexible architecture where platforms can build custom access rules without modifying the protocol itself.
+
+### How Crate Uses It
+
+In the case of **Friends & Family** and labels using Crate, the platform holds the signing keys that act as access authorities. When artists submit demos:
+
+1. Tracks are uploaded to the Open Audio Protocol
+2. Streaming access is restricted to Crate via the authority key
+3. A&R teams can listen, review, and collaborate inside the platform
+
+This design provides several advantages:
+
+- Crate doesn't need to operate its own storage or streaming infrastructure
+- All submissions live within an open music graph
+- Artists maintain a clear path to release if a track is signed
+
+From there, labels and artists have multiple options:
+
+**If a track is archived or saved for later** — Artists can remove the access authority and publish the track directly to Audius or any platform streaming from the protocol.
+
+**If a track is signed** — The label can update the track, re-program and release it directly through the label's address on the Open Audio Protocol or other account as they see fit.
+
+### A New Infrastructure for A&R
+
+Crate represents a new model for how music discovery and signing can work in an era of massive creative output. Instead of fragmented inboxes and private links, A&R teams get a structured pipeline. Instead of siloed platforms, artists publish to an open protocol with programmable rights and distribution. And instead of slow, manual workflows, labels can move at the speed modern music culture demands.
+
+We're incredibly excited to see platforms like Crate emerge. And this is only the beginning of what developers can build on the **Open Audio Protocol**.
+
+<br />
+
+## Submit Your Demo
+
+- [Submit a demo to Friends & Family](https://friendsandfamily.crate.is/submit)
+- Get in touch with the Crate team: [jesse@audius.co](mailto:jesse@audius.co)
+- [Follow Disclosure on Audius](https://audius.co/disclosure)
+- [Follow Friends & Family](https://instagram.com/disclosure_friendsandfam)
+- [Follow Audius](https://instagram.com/audius)
+- [Read the documentation](/tutorials/gate-release-access)
