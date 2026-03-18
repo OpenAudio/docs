@@ -122,6 +122,10 @@ export default defineConfig({
           text: "Audits",
           link: "/reference/audits",
         },
+        {
+          text: "Open Music License",
+          link: "/reference/open-music-license",
+        },
       ],
     },
     {
