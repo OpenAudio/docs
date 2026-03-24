@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vocs dev",
-    "build": "vocs build",
+    "gen:llms-txt": "node scripts/generate-llms-txt.cjs",
+    "build": "node scripts/generate-llms-txt.cjs && vocs build",
     "preview": "vocs preview"
   },
   "dependencies": {

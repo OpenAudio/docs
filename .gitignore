@@ -41,3 +41,8 @@ coverage
 *.swo
 # End of Selection
 .venv
+
+# Generated LLM docs (built at deploy time)
+docs/public/llms.txt
+docs/public/llms-full.txt
+docs/public/docs-md

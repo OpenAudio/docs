@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# LLM & AI agent friendly — full content index available
+# See /llms.txt for structured page index
+# See /llms-full.txt for complete docs content in markdown
