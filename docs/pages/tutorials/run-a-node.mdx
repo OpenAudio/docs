@@ -88,7 +88,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --cleanup my-node
+    command: --cleanup --interval 3600 my-node
 ```
 
 **4. Run your node**
