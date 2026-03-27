@@ -98,3 +98,78 @@ font-display:auto;font-style:normal;font-weight:400;font-stretch:normal;
     color: #d8b4fe;
   }
 }
+
+/**
+ * Wide markdown tables: wrap each table with <TableScroll> (see docs/components/TableScroll.tsx)
+ * or `<div className="docs-table-scroll">` in MDX.
+ * Reusable on any page. Lets the table grow to natural width, keeps cell text on one line, and
+ * scrolls horizontally instead of wrapping into very tall rows.
+ */
+.docs-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1.5rem;
+}
+
+.docs-table-scroll > table {
+  width: max-content;
+  min-width: 100%;
+  /* Vocs sets display:block on tables; this restores normal column layout inside scroll */
+  display: table;
+  margin-bottom: 0;
+}
+
+.docs-table-scroll > table :is(th, td) {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+/*
+ * TableExpand — collapsible table wrapper
+ */
+.docs-table-expand {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--vocs-color_border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.docs-table-expand-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--vocs-color_backgroundDark);
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: var(--vocs-color_text);
+  text-align: left;
+}
+
+.docs-table-expand-toggle:hover {
+  background: var(--vocs-color_background3);
+}
+
+.docs-table-expand-icon {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+.docs-table-expand-content {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.docs-table-expand-content > table {
+  width: 100%;
+  display: table;
+  margin-bottom: 0;
+}
+
+.docs-table-expand-content > table :is(th, td) {
+  vertical-align: top;
+}

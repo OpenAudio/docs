@@ -1,9 +1,10 @@
-<img style={{ borderRadius: '10px', overflow: 'hidden' }} src='/orbs.png' />
-# Staking
+<img style={{ borderRadius: "10px", overflow: "hidden" }} src="/orbs.png" />#
+Staking
 
 There are two ways to stake \$AUDIO:
-* Directly staking through the [Staking.sol](https://etherscan.io/address/0xe6D97B2099F142513be7A2a068bE040656Ae4591) contract by registering a `validator node`
-* Delegating \$AUDIO stake through the [DelegateManager.sol](https://etherscan.io/address/0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225) contract to an existing `validator` (node operator) of the protocol.
+
+- Directly staking through the [Staking.sol](https://etherscan.io/address/0xe6D97B2099F142513be7A2a068bE040656Ae4591) contract by registering a `validator node`
+- Delegating \$AUDIO stake through the [DelegateManager.sol](https://etherscan.io/address/0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225) contract to an existing `validator` (node operator) of the protocol.
 
 This way, anyone can stake \$AUDIO, no matter how much or how little.
 
@@ -18,8 +19,9 @@ Operating a `validator node` requires a minimum stake of 200,000 \$AUDIO, with a
 For example, if a `validator` themselves is staking 400,000 \$AUDIO and receiving a delegation of 700,000 \$AUDIO, they may run between 1 and 5 nodes. If a `validator` is staking 1,000,001 \$AUDIO and receiving 14,000,000 in delegation, they must run at least 2 nodes.
 
 `Validators` choose the parameters to receive delegation:
-* The percentage fee of rewards they capture from all delegated \$AUDIO
-* The minimum amount of stake an individual party is permitted to delegate to them
+
+- The percentage fee of rewards they capture from all delegated \$AUDIO
+- The minimum amount of stake an individual party is permitted to delegate to them
 
 ## Delegate Staking
 
@@ -31,6 +33,28 @@ Delegator rewards are earned and claimed in the same transactions as when the va
 
 ## Slashing
 
-Negligent validators whose nodes do not meet their obligations can be slashed. Slashing is performed through the [Governance](/concepts/governance) system after sufficient vote and tokens that are slashed are burned through the null address.
+Negligent validators whose nodes do not meet their obligations can be slashed.
 
-Further details on automated mechanicsms can be read in the [Validators](/concepts/validators#sla-proofs) section.
+Slashing reduces a validator's staked \$AUDIO when peformed. The penalty is applied by calling **`slash`** on the [DelegateManager](https://etherscan.io/address/0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225#code) contract. Slashed tokens are burned (sent to the null address).
+
+On-chain slashing occurs only after a [governance](/concepts/governance) proposal passes a vote and someone executes the proposal's calldata. Coordination (uptime, storage proofs, jailing on the Open Audio coordination layer) is described under [SLA proofs](/concepts/validators#sla-proofs); those mechanisms inform when the community might propose a slash.
+
+### Proposal calldata
+
+Governance proposals encode a target contract, function signature, and ABI-encoded arguments. For `slash`, the first argument is the **amount in wei** (1 wei = 10⁻¹⁸ \$AUDIO; \$AUDIO uses 18 decimals, like ETH). The second argument is the **validator service provider address** to slash.
+
+You can draft and submit proposals through the [Open Audio Staking UI](https://staking.openaudio.org/#/governance) or the [Audius Protocol Dashboard](https://dashboard.audius.org).
+
+#### Example
+
+| Field           | Value                                                                                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Target contract | `0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225` ([DelegateManager](https://etherscan.io/address/0x4d7968ebfD390D5E7926Cb3587C39eFf2F9FB225#code)) |
+| Function        | `slash(uint256,address)`                                                                                                                       |
+| Arguments       | `1000000000000000000`, `0x000000000000000000000000000000000000dEaD`                                                                            |
+
+`1000000000000000000` wei equals **1** \$AUDIO. The address `0x000000000000000000000000000000000000dEaD` is a **placeholder** for examples only; replace it with the real validator address from chain state when drafting an actual proposal.
+
+Delegate stake is penalized alongside the validator's bond according to contract rules, proportional to the validator's stake; see the DelegateManager source and the [Direct staking](#direct-staking) / [Delegate staking](#delegate-staking) sections above for how validator vs. delegator stake is laid out.
+
+Further details on automated mechanisms can be read in the [Validators](/concepts/validators#sla-proofs) section.

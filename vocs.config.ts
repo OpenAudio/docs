@@ -31,10 +31,6 @@ export default defineConfig({
       icon: "github",
       link: "https://github.com/OpenAudio",
     },
-    {
-      icon: "x",
-      link: "https://twitter.com/OpenAudioProto",
-    },
   ],
   sidebar: [
     {

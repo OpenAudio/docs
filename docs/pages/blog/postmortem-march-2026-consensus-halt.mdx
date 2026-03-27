@@ -1,0 +1,208 @@
+---
+layout: minimal
+date: 2026-03-26
+description: Postmortem for the OpenAudio network consensus halt on March 24, 2026 -- root causes, patches, and lessons learned.
+authors:
+  - "[ray j](https://twitter.com/raymondjacobson)"
+  - "[marcus pasell](https://twitter.com/rickyrombo)"
+---
+
+import SubstackLink from "../../components/SubstackLink";
+import TableExpand from "../../components/TableExpand";
+
+<SubstackLink />
+
+# Postmortem: Network Consensus Halt, March 24, 2026
+
+![Network Performance dashboard showing validator count drop and recovery during the March 24 consensus halt](/network-performance-march-2026.png)
+
+**Status:** Published<br />
+**Date of incident:** March 24, 2026<br />
+**Severity:** Critical -- network-wide consensus halt<br />
+**Impact:** No new data written to the protocol during the halt, reading data and streaming unimpacted.
+
+## Summary
+
+The Open Audio Protocol experienced a consensus halt starting the morning of March 24, 2026, the first of its kind in the history of the chain. It was detected at around 2am PT at nearly the same time by Figment and Audius teams.
+
+Under the hood, the Open Audio Protocol leverages the [CometBFT](https://github.com/cometbft/cometbft) consensus engine to coordinate audio metadata updates and streaming use in its [core](https://docs.openaudio.org/concepts/validators#core) package. The halt was caused by a cascade of independent failures that collectively dropped the active validator set below the 2/3+ supermajority threshold required. The contributing factors were:
+
+(1) A validator operator with substantial stake and node count changing DNS that silently reduced participation
+
+(2) A separate operator's accidental infrastructure deletion that simultaneously downed many validators before they could be jailed or consensus-deregistered
+
+(3) A handful of validators present in CometBFT's consensus state but missing from `core_validators` application state, due to legacy registration bugs, which complicated normal return to service
+
+Recovery required a database migration to correct the validator set, coordination with multiple staked validator operators to restore availability, and a protocol-level change to accelerate CometBFT round progression to health the network more expediently.
+
+The network fully recovered at 4:47 PM PDT on March 25, 2026.
+
+## Timeline
+
+<TableExpand title="Timeline" defaultOpen={false}>
+
+| Date/Time                           | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pre-incident                        | A validator operator (cultur3stake.com) changed DNS configuration, rehoming all of their nodes to open-audio-validator.com, causing onchain re-registration. Due to the rapid change, only 1 of their nodes was left participating in consensus. The effective validator count was silently reduced with no obvious on-chain signal/alert.                                                                                                                                                |
+| Pre-incident                        | The chain state of a separate operator's validators (theblueprint.xyz) were unintentionally reset, further reducing the active node count participating in consensus.                                                                                                                                                                                                                                                                                                                     |
+| Pre-incident                        | Prior bugs in validator registration / jailing left 5 nodes out of sync between internal CometBFT consensus state and the application-level `core_validators` table.                                                                                                                                                                                                                                                                                                                      |
+| March 24 1:57 AM PDT                | Network consensus halts: participation falls below 2/3+ supermajority                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| March 24 2:02 AM PDT                | Audius (TikiLabs) team internal pager fires for the first time                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| March 24 2:26 AM PDT                | Audius team diagnoses the network halt as a lack of supermajority                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| March 24 2:47 AM PDT                | Investigation reveals theblueprint.xyz operator's nodes were the latest change to cause the network to halt.                                                                                                                                                                                                                                                                                                                                                                              |
+| March 24 3:04 AM PDT                | Audius team first contacts theblueprint.xyz to understand system state.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| March 24 3:20 AM PDT                | Investigation finds 5 validators in CometBFT's set missing from `core_validators` (legacy path); worsens rollups/recovery                                                                                                                                                                                                                                                                                                                                                                 |
+| March 24 3:20 AM PDT                | Audius team is convinced after being told that things would "stabilize shortly" that the operators will resume participation soon and elects to wait for the network to self-repair.                                                                                                                                                                                                                                                                                                      |
+| March 24 4:19 AM PDT                | theblueprint.xyz team relays to Audius team that an unintended disk cleanup routine is the source of Comet/Database state mismatch.                                                                                                                                                                                                                                                                                                                                                       |
+| March 24 9:23 AM PDT                | One node of theblueprint.xyz's fleet [https://audius-creator-13.theblueprint.xyz](https://audius-creator-13.theblueprint.xyz) resumes normal operation by way of network state sync but the consensus remains halted. Audius team escalates issue internally and elects to deploy a forked network to resume its own application layer operations.                                                                                                                                        |
+| March 24 1:15 PM PDT                | Audius + theblueprint.xyz determine that likely cause for the remainder of the nodes being unable to sync up is due to several nodes all pulling state sync snapshots from Audius-hosted nodes at the same time along with disk contention issues (it remains unclear whether the entire issue was due to disk contention). Regardless, the Audius teams elect to publish a state sync snapshot to s3://download.audius.co/snapshots/height_0021700000 to improve state sync reliability. |
+| March 24 1:17 PM PDT                | `go-openaudio:v1.2.5` published: migration backfills missing `core_validators` rows to match CometBFT (helps recovery; supermajority still depends on live nodes).                                                                                                                                                                                                                                                                                                                        |
+| March 24 6:47 PM PDT                | State sync from S3 on theblueprint.xyz nodes finishes with corrupt AppState requiring additional resources to be published to Audius S3: state.db and blockstore.db                                                                                                                                                                                                                                                                                                                       |
+| March 24 8:42 PM PDT                | [https://audius-creator-14.theblueprint.xyz](https://audius-creator-14.theblueprint.xyz) resumes normal operation through S3-based state sync. Other nodes continue to progress slowly.                                                                                                                                                                                                                                                                                                   |
+| March 25 12:10 PM PDT               | Audius team believes that enough nodes have recovered from outages to meet supermajority but then identifies that many nodes are churning through CometBFT's linear round timeout accumulation and are unable to catch up in a timely manner. CometBFT increases round timeouts linearly (`timeout = base + round * delta`), so nodes stuck hundreds of rounds behind accumulate massive delays. Due to the outage being > 36 hours caused substantial buildup.                           |
+| March 25 12:10 PM PDT - 4:42 PM PDT | Audius team contacts other node operators to deploy a patch to accelerate round progression via `openaudio/go-openaudio:5782b161791cdcd800a058d701e02113ae47ec80-amd64`.                                                                                                                                                                                                                                                                                                                  |
+| March 25 4:47 PM PDT                | Block production resumed after reaching supermajority.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+</TableExpand>
+
+## Background
+
+### Validator Registration and `core_validators`
+
+The Open Audio Protocol maintains a `core_validators` table in PostgreSQL that tracks all registered validators. Each row stores the validator's public key, endpoint URL, Ethereum address, CometBFT internal address, and service provider ID. This table is the application's source of truth for who is in the validator set.
+
+Validator registration is a multi-step process that bridges Ethereum L1 and the Audio L1:
+
+1. A node operator registers on the Ethereum staking contract.
+2. The node's registry bridge detects its own Ethereum registration and submits a registration transaction to the Open Audio chain.
+3. Other validators attest to the registration via multi-signature quorum.
+4. Once the attestation is finalized in a block, the validator is inserted into `core_validators` and a `ValidatorUpdate` is delivered to CometBFT, adding the node to the consensus set.
+
+Critically, both the `core_validators` insert and the CometBFT `ValidatorUpdate` must happen together. If one succeeds without the other, the application and consensus engine disagree on who is a validator, which can lead to degredation as nodes may not agree on validator set when computing SLA rollups.
+
+### Jailing and the SLA Rollup System
+
+The Open Audio Protocol implements design decisions to favor availability in the effort of allowing modern streamining DSPs to operate close to their web2 counterparts' capabilities.
+
+Validators are expected to actively participate in block production. The protocol tracks this through SLA (Service Level Agreement) rollups:
+
+- At a configured block interval (currently set to 2048 blocks), the block proposer creates an `SlaRollup` transaction covering the recent block range.
+- The rollup contains a `SlaNodeReport` for each active validator, recording how many blocks that validator proposed during the interval.
+- All validators independently compute the same rollup from their local state. If a proposed rollup doesn't match what a validator computes locally, it rejects the transaction.
+
+A "validator warden" process periodically checks the last 8 SLA rollups for each validator. If a validator proposed zero blocks across all 8 rollups, it is jailed: a `ValidatorDeregistration` transaction (with `Remove = false`) is submitted to consensus, which sets the validator's `jailed` flag to `true` and delivers a power-zero `ValidatorUpdate` to CometBFT. Jailed validators are removed from active consensus but retain their database record and can re-attest to unjail themselves. This allows for CometBFT to maintain a higher block production rate despite having delinquent validators.
+
+This jailing mechanism is relevant to the incident because the SLA rollup validation utilizes the `core_validators` application state to verify validity. Prior to the incident, but undetected, `core_validators` listed 45 validators but CometBFT had 50 in its set. This led to proposals requiring a 34 node supermajority with only visibility into 45 nodes. The ability for a rollup to be validated was therefore reduced.
+
+### Blocks and Rounds in CometBFT Consensus
+
+CometBFT produces blocks through a propose-prevote-precommit cycle. For each block height, a designated proposer creates a block and broadcasts it. Validators then vote in two phases (prevote and precommit). If 2/3+ of voting power agrees, the block is committed. This is a single **round**.
+
+If consensus fails in a round, because the proposer is offline, too few validators respond, or votes don't reach supermajority, the protocol advances to the next round with a different proposer. Each phase has a configurable timeout, and importantly, these timeouts **grow linearly with each round**:
+
+```
+timeout = base + (round × delta)
+```
+
+The Open Audio Protocol configures these as:
+
+| Phase     | Base  | Delta |
+| --------- | ----- | ----- |
+| Propose   | 400ms | 75ms  |
+| Prevote   | 300ms | 75ms  |
+| Precommit | 300ms | 75ms  |
+
+In round 0, the full cycle takes roughly 1 second. By round 100, each phase has grown by 7.5 seconds, making a single round take ~23.5 seconds. By round 1000, a single round takes over 3.5 minutes. This linear backoff is designed to give slow nodes time to converge, but it becomes a serious obstacle during recovery from a halt. Nodes must advance through every intervening round sequentially, each one slower than the last.
+
+While per-round timeouts grow linearly, the **cumulative** cost is quadratic. The total time to advance through N rounds is:
+
+```
+Σ(r=0..N-1) [1000 + 225r] = 1000N + 225·N(N-1)/2
+```
+
+Notably when a node restarts, it resets to round=0 and has to catch up through every intervening round sequentially, each one slower than the last, leading to a several hour max recovery time to a round 1000+ halt, which is what this incident saw.
+
+## Root Causes
+
+### 1. Simultaneous Node State Deletion
+
+A validator operator (theblueprint.xyz) had a disk cleanup routine that unintentionally pruned the CometBFT chain state directory, causing a CometBFT/Postgres state mismatch across their 17 nodes; while blob storage remained fully intact, the nodes became unable to participate in consensus.
+
+### 2. Reduced Validator Participation (DNS Change)
+
+A validator operator (previously known as cultur3stake) changed their DNS configuration to rehome all of their nodes under open-audio-validator.com, causing most of their validators to become unreachable to the rest of the network due to the registration process. Only one of their validators had made it into consensus by the time of the incident (https://val001.open-audio-validator.com/). This silently reduced the effective voting power without good detection. open-audio-validator.com has substantial stake on the network and runs 20 nodes.
+
+### 3. Stale Validators in CometBFT State
+
+Five validators existed in CometBFT's consensus validator set but were missing from the application-level `core_validators` table. These validators were originally registered via a legacy registration path that did not write to `validator_history`. Their `core_validators` rows were lost during a deregistration/re-registration cycle where the DB insert was skipped (duplicate detection) but the CometBFT `ValidatorUpdate` was still delivered.
+
+CometBFT saw 50 validators while `core_validators` listed 45—mostly a mismatch for SLA rollups, artificially inflating the supermajority threshold.
+
+### 4. CometBFT Round Timeout Accumulation
+
+CometBFT increases consensus round timeouts linearly: `timeout = base + (round * delta)`. With default delta values of 75ms, a node that needs to catch up through hundreds of failed rounds accumulates significant delays (e.g., round 1000 x 75ms = 75 seconds per round step). This made recovery painfully slow even after the validator set issues were addressed.
+
+## Impact
+
+- **Full consensus halt** -- no new blocks produced between March 24 1:57 AM PDT and March 25 4:47 PM PDT (38 hours and 50 minutes)
+- **Failing writes** -- All downstream services and applications issuing write operations were impacted by the halt.
+
+No impact to reading data or streaming occurred during the halt.
+
+## Patches Deployed
+
+1. **Missing validator migration** (`go-openaudio:v1.2.5`) -- SQL migration to add the 5 stale validators back into `core_validators`, aligning the application-level validator count with CometBFT's consensus state.
+
+2. **Configurable consensus timeout deltas** (branch: `rj-fast-round` via `go-openaudio:5782b161791cdcd800a058d701e02113ae47ec80-amd64`) -- Environment variables (`OPENAUDIO_TIMEOUT_PROPOSE_DELTA`, `OPENAUDIO_TIMEOUT_PREVOTE_DELTA`, `OPENAUDIO_TIMEOUT_PRECOMMIT_DELTA`) to reduce the per-round timeout increment, allowing nodes to catch up through many failed rounds faster during recovery.
+
+Released formally in `go-openaudio:v1.2.6`.
+
+### Prior Related Work (pre-incident)
+
+- **Consensus-based validator deregistration** (March 12, `go-openaudio:v1.2.2`–`go-openaudio:v1.2.4`) -- Replaced direct DB manipulation with consensus transactions to keep CometBFT and application state in sync. This was a preventive fix that addressed the class of bug that created the stale validators, but did not retroactively fix the existing inconsistency.
+
+## Contributing Factors
+
+- **No alerting on validator set divergence** -- The mismatch between CometBFT and `core_validators` was not visible in monitoring until the incident
+- **Silent validator dropout** -- DNS changes and node wipes produced no on-chain warnings; the network only failed when it crossed the supermajority threshold
+- **Legacy registration path** -- The old registration flow did not maintain consistent state across all tables, creating the conditions for stale validators
+- **Narrow effective fault tolerance** -- DNS misconfiguration plus a correlated infrastructure wipe left the network close to the supermajority boundary
+
+## Action Items
+
+| Priority | Action                                                                                                                                                                             | Status                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| P0       | Deploy cleanup migration for `go-openaudio:v1.2.5` along with round timing configuration, improvements to node registration process, and better /console information               | Done (`go-openaudio:v1.2.6`) |
+| P1       | Add better monitoring/alerting for CometBFT vs. application validator set divergence                                                                                               | TODO                         |
+| P1       | Add alerting for validator participation drop below safety threshold                                                                                                               | TODO                         |
+| P1       | Audit legacy registration paths for other state inconsistencies                                                                                                                    | TODO                         |
+| P2       | Document validator operator runbook for DNS changes and infrastructure maintenance                                                                                                 | TODO                         |
+| P2       | Treat correlated outage exposure as a metric (e.g. validators / voting power sharing operator, DNS zone, or ops boundary)—not only per-operator stake caps                         | TODO                         |
+| P2       | Continue development of the "proportional rewards" feature that will dispurse additional rewards to node operators that are unjailed and able to complete storage proof challenges | TODO                         |
+
+## Lessons Learned
+
+1. **State consistency between consensus and application layers is critical.** Any path that modifies one must modify both atomically, or have reconciliation mechanisms. The prior fix to use consensus-based deregistration addressed this going forward, but the pre-existing inconsistency was only caught when it contributed to a halt.
+2. **The network's fault tolerance margin was narrow**—especially after correlated loss of many live validators; the small app vs. Comet validator mismatch did not help but was secondary.
+3. **CometBFT's linear timeout backoff is hostile to recovery.** After hundreds of missed rounds, the accumulated timeouts make catching up prohibitively slow without intervention.
+4. **Validator operator coordination is a first-class operational concern.** DNS changes, infrastructure maintenance, and node resets need to be communicated and staged to avoid compounding failures.
+5. **Validator count does not equal true fault tolerance.** Multiple validators run by the same operator, DNS, or on shared infrastructure can still fail together. We need not just stake caps, but also better monitoring, participation alerts, and processes to avoid single points of failure.
+6. The network only disincentivizes bad behavior through social slashing. The protocol team is actively developing a feature to dispurse additional rewards to node operators that are unjailed and able to complete storage proof challenges. This will be a key tool for the network to incentivize good behavior and reduce the risk of future consensus halts as well as reliable storage.
+7. In future, we recommend that node operators with multiple nodes in their fleet perform maintenance or infrastructure changes in a pharsed or staggered manner to avoid compounding failures and socialize changes.
+
+### Slashing
+
+How slashing works, example `slash` calldata, and links to the staking UI and dashboard are documented under **[Slashing](/concepts/staking#slashing)** on the [Staking](/concepts/staking) page.
+
+## Gratitude
+
+🙏
+
+We are grateful to the following teams for their assistance in investigating and resolving the incident with a high level of urgency, ownership and care for the protocol and its users:
+
+- [theblueprint.xyz](https://theblueprint.xyz/)
+- [cultur3stake](https://cultur3.capital/)
+- [Figment](https://figment.io/)
+- [TikiLabs](https://tikilabs.com/)
+- [Altego](https://altego.net)
+- Many other indepdent node operators, including but not limited to: Super Cool Labs, audiusindex.org, rickyrombo.com, monophonic.digital, shakespearetech.com, audius-nodes.com
