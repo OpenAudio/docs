@@ -44,18 +44,18 @@ This is the Ethereum secp256k1 keypair for your node. This key never holds funds
 
 ```bash
 pip install eth-keys
-python -c "from eth_keys import keys;import os;p=keys.PrivateKey(os.urandom(32));print('delegateOwnerWallet=',p.public_key.to_checksum_address(),'\ndelegatePrivateKey=',p.to_hex(),sep='')"
+python -c "from eth_keys import keys;import os;p=keys.PrivateKey(os.urandom(32));print('OPENAUDIO_DELEGATE_WALLET=',p.public_key.to_checksum_address(),'\nOPENAUDIO_DELEGATE_PRIVATE_KEY=',p.to_hex(),sep='')"
 ```
 
 **2. Create an .env file**
 
 ```bash // [.env]
-nodeEndpoint=https://my-node.com
+OPENAUDIO_NODE_ENDPOINT=https://my-node.com
 # The keypair you generated above
-delegateOwnerWallet=0x01234567890abcdef01234567890abcdef012345
-delegatePrivateKey=01234567890abcdef01234567890abcdef01234567890abcdef01234567890ab
-# Your wallet address that is staking. If running an RPC, set to the same value as `delegateOwnerWallet`
-spOwnerWallet=0x01234567890abcdef01234567890abcdef012345
+OPENAUDIO_DELEGATE_WALLET=0x01234567890abcdef01234567890abcdef012345
+OPENAUDIO_DELEGATE_PRIVATE_KEY=01234567890abcdef01234567890abcdef01234567890abcdef01234567890ab
+# Your wallet address that is staking. If running an RPC, set to the same value as `OPENAUDIO_DELEGATE_WALLET`
+OPENAUDIO_OWNER_WALLET=0x01234567890abcdef01234567890abcdef012345
 
 # Validator storage configuration
 # If electing to use blob storage, set:
@@ -194,7 +194,7 @@ On the protocol dashboard:
 1. Connect a wallet or multisig using wallet connect button at the top of the page
 2. Click `Nodes` in the navigation menu
 3. Click `Register New Node`
-4. Fill out `nodeEndpoint`, `delegateOwnerWallet` based on your configuration above
+4. Fill out `OPENAUDIO_NODE_ENDPOINT`, `OPENAUDIO_DELEGATE_WALLET` based on your configuration above
 5. Set a desired stake amount (you must have this much $AUDIO already in your wallet)
 6. Click register and then sign & send the two transactions
 
@@ -256,7 +256,7 @@ If this is your last node, an unstake request will get created, visible on your 
 
 **Update node**
 
-7. Update the environment variable `creatorNodeEndpoint` to be `nodeEndpoint`
+7. Update the environment variable `creatorNodeEndpoint` to be `OPENAUDIO_NODE_ENDPOINT`
 8. Set the image from audiusd to `openaudio/go-openaudio:stable`
 
 **Register the new node**
