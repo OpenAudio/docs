@@ -233,35 +233,4 @@ If this is your last node, an unstake request will get created, visible on your 
 > 5. Return to the nodes page of the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
 > 6. Click register a new node
 > 7. Use the same URL and keypair you previously had used for your node
-  
-
-### Content to validator
-
-Existing content nodes, if running a recent `audiusd` or `go-openaudio` image, qualify as validator nodes. Content nodes have a smaller maximum stake allowance than validator nodes though, so it is beneficial to re-register them. It is also highly recommended that you move your node to blob storage if it is running off of a disk. See [moving to blob storage](/tutorials/run-a-node#moving-to-blob-storage).
-
-To re-register your node:
-
-**Deregister your existing node**
-
-1. Visit the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
-2. Authenticate with your wallet
-3. Click on the node you wish to migrate
-4. Click the trash can icon to de-register the node, and type DEREGISTER to confirm
-5. Return to the nodes page of the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes)
-6. Shut down your existing content node
-
-:::warning
-If this is your last node, an unstake request will get created, visible on your operator page. Before continuing, you should cancel that request.
-:::
-
-**Update node**
-
-7. Update the environment variable `creatorNodeEndpoint` to be `nodeEndpoint`
-8. Set the image from audiusd to `openaudio/go-openaudio:stable`
-
-**Register the new node**
-
-9. Click register a new node
-10. Use the same URL and keypair you previously had used for your node
-11. Spin your node back up
 
