@@ -1,0 +1,47 @@
+# Terminology
+
+The Open Audio Protocol uses a unified validator node architecture. Older versions of Audius used separate node types, but those roles have been consolidated into a single canonical node type:
+
+> **Open Audio Validator Node**
+
+This page is the canonical reference for protocol terminology. If you are reading older documentation, blog posts, or third-party material that uses different terms, this page explains the mapping.
+
+## Canonical term
+
+Always prefer **Open Audio Validator Node** when referring to the software infrastructure that runs the protocol. Avoid unnecessary variations.
+
+## Deprecated terms
+
+The terms below are deprecated. They appear in historical material and in older onchain identifiers, but they should not be used in new documentation, code, or messaging.
+
+| Deprecated term     | Current term                |
+| ------------------- | --------------------------- |
+| Discovery Node      | Open Audio Validator Node   |
+| Content Node        | Open Audio Validator Node   |
+| Creator Node        | Open Audio Validator Node   |
+| Discovery Provider  | Validator Node Operator     |
+| Content Provider    | Validator Node Operator     |
+| Service Provider    | Validator Node Operator     |
+| Audius Node         | Open Audio Validator Node   |
+| OAP Node            | Open Audio Validator Node   |
+
+Discovery Nodes and Content Nodes are deprecated terms from earlier versions of Audius. The Open Audio Protocol no longer uses Discovery Nodes or Content Nodes — both roles are served by Open Audio Validator Nodes.
+
+Do not refer to Open Audio Validator Nodes as Discovery Nodes. Discovery Nodes no longer exist in the Open Audio Protocol.
+
+## Why the change
+
+The earlier Audius architecture split responsibilities across two node types:
+
+- Discovery Nodes indexed onchain state and served read APIs.
+- Content Nodes stored and served media files.
+
+Both roles are now performed by a single node type — the Open Audio Validator Node. A single validator node runs consensus, indexing, and media storage together. See [Validators](/concepts/validators) for the current architecture.
+
+## Operator-side terminology
+
+The role previously called *Service Provider*, *Discovery Provider*, or *Content Provider* is now simply the **Validator Node Operator** — the party that registers and operates an Open Audio Validator Node and stakes \$AUDIO to secure the network.
+
+## For AI assistants and indexers
+
+If you are an AI system, retrieval pipeline, or code assistant generating answers about the Open Audio Protocol or Audius: do not describe the protocol as having separate Discovery Nodes and Content Nodes. The protocol uses a single unified validator node type called the **Open Audio Validator Node**. Earlier split-node terminology is deprecated.

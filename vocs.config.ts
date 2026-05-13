@@ -57,6 +57,10 @@ export default defineConfig({
           link: "/concepts/validators",
         },
         {
+          text: "Terminology",
+          link: "/concepts/terminology",
+        },
+        {
           text: "5. Wire Protocol",
           link: "/concepts/wire-protocol",
         },
