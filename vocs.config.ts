@@ -107,6 +107,10 @@ export default defineConfig({
       text: "Reference",
       items: [
         {
+          text: "Environment Variables",
+          link: "/reference/node-environment-variables",
+        },
+        {
           text: "Ethereum Contracts",
           link: "/reference/ethereum-contracts",
         },
