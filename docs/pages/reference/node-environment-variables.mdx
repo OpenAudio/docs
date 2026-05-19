@@ -9,147 +9,191 @@ The Go binary picks values in priority order: `OPENAUDIO_*` first, then the lega
 ## Node identity
 
 **`OPENAUDIO_NODE_ENDPOINT`** (legacy: `nodeEndpoint`)
+
 _Public HTTPS endpoint of this node (FQDN, no port)._
 
 **`OPENAUDIO_DELEGATE_PRIVATE_KEY`** (legacy: `delegatePrivateKey`)
+
 _secp256k1 private key (hex) used to sign validator and storage operations._
 
 **`OPENAUDIO_DELEGATE_WALLET`** (legacy: `delegateOwnerWallet`)
+
 _Public wallet address matching the delegate private key._
 
 **`OPENAUDIO_OWNER_WALLET`** (legacy: `spOwnerWallet`)
+
 _Wallet that holds the staked $AUDIO bond for this node._
 
 ## Network
 
 **`OPENAUDIO_ENV`** (default: `prod`)
+
 _Network to join: `prod`, `stage`, or `dev`._
 
 **`OPENAUDIO_ETH_PROVIDER_URL`** (default: per-network RPC, legacy: `ethProviderUrl`)
+
 _Ethereum L1 RPC used to sync the on-chain validator registry._
 
 **`OPENAUDIO_ETH_REGISTRY_ADDRESS`** (default: per-network address, legacy: `ethRegistryAddress`)
+
 _Address of the validator registry contract on Ethereum L1._
 
 **`OPENAUDIO_PERSISTENT_PEERS`** (default: per-network peer list, legacy: `persistentPeers`)
+
 _Comma-separated CometBFT persistent-peer addresses._
 
 **`OPENAUDIO_EXTERNAL_ADDRESS`** (legacy: `externalAddress`)
+
 _`host:port` advertised to other validators for P2P dialing._
 
 **`OPENAUDIO_MAX_INBOUND_PEERS`** (default: `200`, legacy: `maxInboundPeers`)
+
 _Inbound peer connection cap._
 
 **`OPENAUDIO_MAX_OUTBOUND_PEERS`** (default: `50`, legacy: `maxOutboundPeers`)
+
 _Outbound peer connection cap._
 
 **`OPENAUDIO_USE_HTTPS_FOR_SDK`** (default: `true`, legacy: `useHttpsForSdk`)
+
 _If true, the embedded SDK builds peer URLs as `https://`._
 
 ## Listen addresses
 
 **`OPENAUDIO_HTTP_PORT`** (default: `80`)
+
 _Port the echo proxy binds for HTTP traffic._
 
 **`OPENAUDIO_HTTPS_PORT`** (default: `443`)
+
 _Port the echo proxy binds for HTTPS traffic._
 
 **`OPENAUDIO_RPC_LADDR`** (default: `unix:///tmp/cometbft.rpc.sock`, legacy: `rpcLaddr`)
+
 _CometBFT RPC listen address (Unix socket or `tcp://`)._
 
 **`OPENAUDIO_P2P_LADDR`** (default: `tcp://0.0.0.0:26656`, legacy: `p2pLaddr`)
+
 _CometBFT P2P listen address._
 
 **`OPENAUDIO_GRPC_LADDR`** (default: `0.0.0.0:50051`, legacy: `grpcLaddr`)
+
 _gRPC listen address for internal services (h2c)._
 
 **`OPENAUDIO_CORE_SERVER_ADDR`** (default: `0.0.0.0:26659`, legacy: `coreServerAddr`)
+
 _Custom Core API listen address._
 
 ## TLS
 
 **`OPENAUDIO_TLS_DISABLED`** (default: `false`)
+
 _Disable TLS termination at the echo proxy._
 
 **`OPENAUDIO_TLS_SELF_SIGNED`** (default: `false`; auto-`true` on `localhost`)
+
 _Use a self-signed certificate instead of Let's Encrypt (dev)._
 
 ## Storage paths
 
 **`OPENAUDIO_CORE_ROOT_DIR`** (default: `~/.audiusd`; `/data/core` in the bundled prod image, legacy: `audius_core_root_dir`)
+
 _Root for CometBFT state, keys, blockstore, and snapshots._
 
 **`OPENAUDIO_UPTIME_DATA_DIR`** (default: `/bolt`; `/data/bolt` in the bundled prod image, legacy: `uptimeDataDir`)
+
 _BoltDB path for uptime / PoSt tracking._
 
 **`OPENAUDIO_DB_URL`** (default: `postgresql://postgres:postgres@localhost:5432/openaudio`, legacy: `dbUrl`)
+
 _Postgres connection string. The entrypoint auto-populates this when running the bundled image._
 
 ## Mediorum (blob storage)
 
 **`OPENAUDIO_STORAGE_ENABLED`** (default: `true`)
+
 _Set to `false` to run a core-only RPC node with no blob storage._
 
 **`OPENAUDIO_STORAGE_DRIVER_URL`** (legacy: `AUDIUS_STORAGE_DRIVER_URL`)
+
 _Primary blob store DSN (`s3://…`, `gs://…`, `file://…?no_tmp_dir=true`)._
 
 **`OPENAUDIO_ARCHIVE_STORAGE_DRIVER_URL`** (legacy: `AUDIUS_ARCHIVE_STORAGE_DRIVER_URL`)
+
 _Optional separate bucket for `StoreAll`-mode archive content._
 
 **`OPENAUDIO_STORAGE_DRIVER_URL_MOVE_FROM`** (legacy: `AUDIUS_STORAGE_DRIVER_URL_MOVE_FROM`)
+
 _Source DSN for one-time blob migration. See [Moving to blob storage](/tutorials/run-a-node#moving-to-blob-storage)._
 
 **`OPENAUDIO_BLOB_STORAGE_STREAMING`** (default: `false`)
+
 _Stream blob writes directly to the bucket rather than buffering locally._
 
 **`OPENAUDIO_STORE_ALL`** (default: `false`, legacy: `STORE_ALL`)
+
 _Store every blob the network has (otherwise only this node's replication slice)._
 
 **`OPENAUDIO_REPAIR_ENABLED`** (default: `true`)
+
 _Run the periodic blob repair / replication daemon._
 
 **`OPENAUDIO_REPAIR_INTERVAL`** (default: `1h`)
+
 _How often the repair daemon scans for missing replicas (Go duration)._
 
 **`OPENAUDIO_TRANSCODE_WORKERS`** (default: CPU count − 2, legacy: `TRANSCODE_WORKERS`)
+
 _Concurrent ffmpeg transcoders._
 
 **`OPENAUDIO_AUDIO_ANALYSIS_WORKERS`** (default: `4`, legacy: `AUDIO_ANALYSIS_WORKERS`)
+
 _Concurrent audio-analysis workers (BPM, key, etc.)._
 
 **`OPENAUDIO_TUSD_UPLOAD_DIR`** (default: `/tmp/tusd-uploads`, legacy: `TUSD_UPLOAD_DIR`)
+
 _Staging directory for resumable (tusd) uploads._
 
 **`OPENAUDIO_TRUSTED_NOTIFIER_ID`** (default: `1`, legacy: `trustedNotifierID`)
+
 _Trusted notifier SPID for DMCA / takedown notices._
 
 **`OPENAUDIO_NODE_OPERATOR_EMAIL`** (legacy: `nodeOperatorEmailAddress`)
+
 _Contact email served at `/contact`._
 
 **`OPENAUDIO_AUTO_UPGRADE_ENABLED`** (default: `false`, legacy: `autoUpgradeEnabled`)
+
 _Self-restart when a newer image tag is detected._
 
 **`OPENAUDIO_DISCOVERY_LISTENS_ENDPOINTS`** (legacy: `discoveryListensEndpoints`)
-_Legacy listen-event sinks (comma-separated URLs)._
+
+_Listen-event sink URLs to notify on play / listen events (comma-separated)._
 
 ## Consensus tuning
 
 **`OPENAUDIO_COMET_LOG_LEVEL`** (default: `statesync:info,p2p:none,mempool:none,rpc:none,*:error`, legacy: `audius_comet_log_level`)
+
 _CometBFT module log filter._
 
 **`OPENAUDIO_TIMEOUT_PROPOSE_DELTA`** (default: `75ms`)
+
 _Per-round increment to the propose timeout._
 
 **`OPENAUDIO_TIMEOUT_PREVOTE_DELTA`** (default: `75ms`)
+
 _Per-round increment to the prevote timeout._
 
 **`OPENAUDIO_TIMEOUT_PRECOMMIT_DELTA`** (default: `75ms`)
+
 _Per-round increment to the precommit timeout._
 
 **`OPENAUDIO_ARCHIVE`** (default: `false`, legacy: `archive`)
+
 _Run in archival mode: never prune blocks._
 
 **`OPENAUDIO_RETAIN_HEIGHT`** (default: `604800`, legacy: `retainHeight`)
+
 _Number of recent blocks to retain when pruning (≈1 week of blocks)._
 
 ## State sync
@@ -157,21 +201,27 @@ _Number of recent blocks to retain when pruning (≈1 week of blocks)._
 State sync lets a new node bootstrap by downloading a recent snapshot from peers instead of replaying every block from genesis.
 
 **`OPENAUDIO_STATE_SYNC_ENABLE`** (default: `true`, legacy: `stateSyncEnable`)
+
 _Attempt state sync on first boot (no-op if the DB already has blocks)._
 
 **`OPENAUDIO_STATE_SYNC_SERVE_SNAPSHOTS`** (default: `false`, legacy: `stateSyncServeSnapshots`)
+
 _Periodically produce snapshots and serve them to bootstrapping peers._
 
 **`OPENAUDIO_STATE_SYNC_KEEP`** (default: `2`, legacy: `stateSyncKeep`)
+
 _Number of snapshots to retain on disk._
 
 **`OPENAUDIO_STATE_SYNC_BLOCK_INTERVAL`** (default: `100000`, legacy: `stateSyncBlockInterval`)
+
 _Blocks between snapshot creations._
 
 **`OPENAUDIO_STATE_SYNC_CHUNK_FETCHERS`** (default: `10`, legacy: `stateSyncChunkFetchers`)
+
 _Parallel chunk downloaders during snapshot restore._
 
 **`OPENAUDIO_STATE_SYNC_RPC_SERVERS`** (default: per-network, legacy: `stateSyncRPCServers`)
+
 _Comma-separated CometBFT RPC servers to fetch snapshots from._
 
 ## Validator warden
@@ -179,60 +229,77 @@ _Comma-separated CometBFT RPC servers to fetch snapshots from._
 The warden audits validator uptime and proposes deregistration of persistently unhealthy validators.
 
 **`OPENAUDIO_VALIDATOR_PURGE_MIN_VALIDATORS`** (default: `30` prod/stage, `3` dev)
+
 _Floor below which the warden will not propose any further deregistrations._
 
 **`OPENAUDIO_VALIDATOR_WARDEN_INTERVAL_MINS`** (default: `60` prod/stage, `2` dev)
+
 _How often (minutes) the warden re-evaluates validator health._
 
 ## Features
 
 **`OPENAUDIO_CORE_ONLY`** (default: `false`)
+
 _Skip Postgres setup and storage; run consensus only._
 
 **`OPENAUDIO_ETL_ENABLED`** (default: `false`)
+
 _Run the ETL indexer that materialises chain data into Postgres views._
 
 **`OPENAUDIO_ETL_ENTITY_MANAGER_DATA_TYPES`** (default: all)
+
 _Comma-separated subset of entity types to index._
 
 **`OPENAUDIO_ETL_RUN_DOWN_MIGRATIONS`** (default: `false`)
+
 _Run ETL `down` migrations on startup before re-running `up` (destructive; testing only)._
 
 **`OPENAUDIO_EXPLORER_ENABLED`** (default: `false`)
+
 _Mount the read-only chain explorer at `/explorer`._
 
 **`OPENAUDIO_GRPC_REFLECTION_ENABLED`** (default: `false`)
+
 _Enable gRPC server reflection (useful with `grpcurl`)._
 
 **`OPENAUDIO_SKIP_ETH_REGISTRATION`** (default: `false`, legacy: `skipEthRegistration`)
+
 _Bypass Ethereum registry checks (dev / sandbox only)._
 
 **`OPENAUDIO_LOG_CRUD_PUSH`** (default: `false`, legacy: `LOG_CRUD_PUSH`)
+
 _Verbose log of every mediorum CRUD push event._
 
 **`OPENAUDIO_ENABLE_AXIOM`** (default: `true` outside dev)
+
 _Forward logs to Axiom._
 
 ## Logging & geo
 
 **`OPENAUDIO_LOG_LEVEL`** (default: `info`)
+
 _Application log level: `debug`, `info`, `warn`, `error`._
 
 **`OPENAUDIO_LATITUDE`**
+
 _Override the node's reported latitude (devnet / globe view)._
 
 **`OPENAUDIO_LONGITUDE`**
+
 _Override the node's reported longitude._
 
 **`OPENAUDIO_COUNTRY`**
+
 _Override the node's reported ISO country code._
 
 ## Build metadata
 
 **`OPENAUDIO_GIT_SHA`** (legacy: `GIT_SHA`)
+
 _Git SHA baked into the build, surfaced on `/health-check`._
 
 **`OPENAUDIO_DOCKER_COMPOSE_GIT_SHA`** (legacy: `AUDIUS_DOCKER_COMPOSE_GIT_SHA`)
+
 _SHA of the compose repo that launched this container._
 
 ## Postgres tuning
@@ -240,27 +307,35 @@ _SHA of the compose repo that launched this container._
 These are read by `cmd/openaudio/entrypoint.sh` and written to `conf.d/50-openaudio-env.conf`; they only apply when running the bundled image (which manages Postgres for you).
 
 **`OPENAUDIO_PG_SHARED_BUFFERS`**
+
 _`shared_buffers` override._
 
 **`OPENAUDIO_PG_WORK_MEM`**
+
 _`work_mem` override._
 
 **`OPENAUDIO_PG_MAINTENANCE_WORK_MEM`**
+
 _`maintenance_work_mem` override._
 
 **`OPENAUDIO_PG_EFFECTIVE_CACHE_SIZE`**
+
 _`effective_cache_size` override._
 
 **`OPENAUDIO_PG_WAL_BUFFERS`**
+
 _`wal_buffers` override._
 
 **`OPENAUDIO_PG_MAX_WAL_SIZE`**
+
 _`max_wal_size` override._
 
 **`OPENAUDIO_PG_MIN_WAL_SIZE`**
+
 _`min_wal_size` override._
 
 **`OPENAUDIO_PGALL`** (default: `false`)
+
 _Allow Postgres connections from any host. **Dev only** — bind 127.0.0.1 if you set this._
 
 ## Entrypoint behaviour
@@ -268,12 +343,15 @@ _Allow Postgres connections from any host. **Dev only** — bind 127.0.0.1 if yo
 These only affect the bundled image's entrypoint script.
 
 **`OPENAUDIO_HOT_RELOAD`** (default: `false`)
+
 _Run with `wgo` for live-reload of `.go` / `.templ` files._
 
 **`OPENAUDIO_CI`** (default: `false`)
+
 _Forces hot-reload off even when `OPENAUDIO_HOT_RELOAD=true`._
 
 **`OPENAUDIO_TEST_HARNESS_MODE`** (default: `false`)
+
 _Boot Postgres, run `.initdb/*.sql`, then exec the test command._
 
 ## Migrating from legacy names
