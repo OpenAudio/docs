@@ -134,6 +134,10 @@ Run the periodic blob repair / replication daemon.
 <small>default: `1h`</small>  
 How often the repair daemon scans for missing replicas (Go duration).
 
+**`OPENAUDIO_REPAIR_CONCURRENCY`**  
+<small>default: `1`</small>  
+Number of CIDs the repair daemon processes in parallel within each batch. Default is serial; increase (e.g. `8`–`16`) to shorten run wall-time on I/O-bound workloads.
+
 **`OPENAUDIO_TRANSCODE_WORKERS`**  
 <small>default: CPU count − 2</small>  
 Concurrent ffmpeg transcoders.
