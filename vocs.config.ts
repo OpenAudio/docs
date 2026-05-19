@@ -107,7 +107,7 @@ export default defineConfig({
       text: "Reference",
       items: [
         {
-          text: "Node Environment Variables",
+          text: "Environment Variables",
           link: "/reference/node-environment-variables",
         },
         {
