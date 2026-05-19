@@ -1,4 +1,4 @@
-<img style={{ borderRadius: '10px', overflow: 'hidden' }} src='/pipes.png' />
+<img style={{ borderRadius: "10px", overflow: "hidden" }} src="/pipes.png" />
 
 # Run A Node
 
@@ -18,15 +18,15 @@ go-openaudio
 go-openaudio is a single docker container that can be run on most hardware with a very minimal set up.
 
 > Stable releases are published monthly at [`openaudio/go-openaudio:stable`](https://hub.docker.com/r/openaudio/go-openaudio).\
-Nightly (edge) builds are tagged by commit hash.\
-$AUDIO governance votes on adoption of versions. That version can be found [here](https://staking.openaudio.org/#/nodes).
-
+> Nightly (edge) builds are tagged by commit hash.\
+> $AUDIO governance votes on adoption of versions. That version can be found [here](https://staking.openaudio.org/#/nodes).
 
 It is recommended to provision a VM with at least:
-* 16GB of memory
-* 8 cpu cores
-* 200GB boot disk
-* Datacenter-grade network access
+
+- 16GB of memory
+- 8 cpu cores
+- 200GB boot disk
+- Datacenter-grade network access
 
 Additionally, validator nodes require file storage. You may elect to use a disk, or any S3-compatible (elastic) blob storage. Generally blob-storage is substantially more cost-effective.
 
@@ -72,6 +72,7 @@ AWS_SECRET_ACCESS_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 **3. Create a docker compose file**
+
 ```yaml // [docker-compose.yml]
 services:
   my-node:
@@ -96,11 +97,13 @@ services:
 ```
 
 **4. Run your node**
+
 ```
 docker compose up -d
 ```
 
 **5. Monitor your node**
+
 ```bash
 curl my-node.com/health-check
 ```
@@ -113,7 +116,24 @@ Your node will begin syncing both [core](/concepts/validators#core) data as well
 The /health-check endpoint also provides `live` and `ready` booleans that can be used to monitor ongoing status.
 :::
 
-## Blob storage options
+## Registration
+
+Visit [staking.openaudio.org](https://staking.openaudio.org) to register your node.
+
+1. Connect a wallet or multisig using wallet connect button at the top of the page
+2. Click `Nodes` in the navigation menu
+3. Click `Register New Node`
+4. Fill out `NODE ENDPOINT`, `NODE WALLET ADDRESS` (delegate address) based on your configuration above
+5. Set a desired stake amount (you must have this much $AUDIO already in your wallet)
+6. Click register and then sign & send the two transactions
+
+:::note
+Registration requires a minimum bond of 200,000 $AUDIO.
+:::
+
+Alternatively you can use [etherscan directly](https://etherscan.io/address/0xD17A9bc90c582249e211a4f4b16721e7f65156c8#writeProxyContract) using the `register` function or the [Audius Protocol Dashboard](https://dashboard.audius.org).
+
+## Blob Storage Options
 
 Blob storage is configured using the popular [go-cdk](https://gocloud.dev/) library and should work with most blob storage offerings on the market. We have provided some example config below to get started with some commonly used providers.
 
@@ -163,23 +183,26 @@ To move from filesystem/disk storage to blob Storage
 1. Set the approprivate environment variables based on the above configuration for your provider.
 
 2. Set the env var
+
 ```
 OPENAUDIO_STORAGE_DRIVER_URL_MOVE_FROM="file:///tmp/mediorum/blobs?no_tmp_dir=true"
 ```
 
 3. Restart your node.
 
-
 You will see this log line:
+
 ```
-info    Moving all files from file:///tmp/mediorum/blobs?no_tmp_dir=true to s3://my-s3-bucket. This may take a few hours...       
+info    Moving all files from file:///tmp/mediorum/blobs?no_tmp_dir=true to s3://my-s3-bucket. This may take a few hours...
 {"node": "https://my-node.com", "service": "mediorum"}
 ```
+
 When finished, you will this log line:
 
 ```
 info    Finished moving files between buckets. Please remove OPENAUDIO_STORAGE_DRIVER_URL_MOVE_FROM from your environment and restart the server. {"node": "https://my-node.com", "service": "mediorum"}
 ```
+
 :::note
 This change will take a few hours.
 :::
@@ -194,33 +217,25 @@ By default, nodes run in a full configuration that prunes old blocks (≈1 week 
 
 The following env vars opt your node into other configurations. See the [Environment Variables](/reference/node-environment-variables) reference for the full list.
 
-**`OPENAUDIO_STORE_ALL`**  
-<small>default: `false`</small>  
-Store every blob the network has, not just this node's replication slice. Used for backup / mirror nodes and is required to make use of `OPENAUDIO_ARCHIVE_STORAGE_DRIVER_URL`. Disk usage grows with the total network footprint.
+**`OPENAUDIO_STORE_ALL`**
 
-**`OPENAUDIO_ARCHIVE`**  
-<small>default: `false`</small>  
-Run in archival mode: never prune blocks. Required if you want to serve historical chain queries below the default retain window. Disk usage grows linearly with chain height.
+<small>default: `false`</small>
+Store every blob the network has, not just this node's replication slice. Used
+for backup / mirror nodes and is required to make use of
+`OPENAUDIO_ARCHIVE_STORAGE_DRIVER_URL`. Disk usage grows with the total network
+footprint.
 
-**`OPENAUDIO_STATE_SYNC_SERVE_SNAPSHOTS`**  
-<small>default: `false`</small>  
-Periodically produce CometBFT state-sync snapshots and serve them to bootstrapping peers. Turning this on helps the network — new nodes can sync from your snapshots instead of replaying from genesis — at the cost of extra disk for the retained snapshots (controlled by `OPENAUDIO_STATE_SYNC_KEEP`).
+**`OPENAUDIO_ARCHIVE`**
 
-## Node registration
+<small>default: `false`</small>
+Run in archival mode: never prune blocks. Required if you want to serve
+historical chain queries below the default retain window. Disk usage grows
+linearly with chain height.
 
-A validator node can be registered as soon as it is stood up.
+**`OPENAUDIO_STATE_SYNC_SERVE_SNAPSHOTS`**
 
-Currently the [Audius Protocol Dashboard](https://staking.openaudio.org/#/nodes) offers a simple UI to register nodes. You may also elect to use [etherscan directly](https://etherscan.io/address/0xD17A9bc90c582249e211a4f4b16721e7f65156c8#writeProxyContract) using the `register` function.
-
-On the protocol dashboard:
-1. Connect a wallet or multisig using wallet connect button at the top of the page
-2. Click `Nodes` in the navigation menu
-3. Click `Register New Node`
-4. Fill out `OPENAUDIO_NODE_ENDPOINT`, `OPENAUDIO_DELEGATE_WALLET` based on your configuration above
-5. Set a desired stake amount (you must have this much $AUDIO already in your wallet)
-6. Click register and then sign & send the two transactions
-
-:::note
-Registration requires a minimum bond of 200,000 $AUDIO.
-:::
-
+<small>default: `false`</small>
+Periodically produce CometBFT state-sync snapshots and serve them to
+bootstrapping peers. Turning this on helps the network — new nodes can sync from
+your snapshots instead of replaying from genesis — at the cost of extra disk for
+the retained snapshots (controlled by `OPENAUDIO_STATE_SYNC_KEEP`).
