@@ -194,14 +194,17 @@ By default, nodes run in a full configuration that prunes old blocks (≈1 week 
 
 The following env vars opt your node into other configurations. See the [Environment Variables](/reference/node-environment-variables) reference for the full list.
 
-**`OPENAUDIO_STORE_ALL`** (default: `false`)
-_Store every blob the network has, not just this node's replication slice. Used for backup / mirror nodes and is required to make use of `OPENAUDIO_ARCHIVE_STORAGE_DRIVER_URL`. Disk usage grows with the total network footprint._
+**`OPENAUDIO_STORE_ALL`**  
+<small>default: `false`</small>  
+Store every blob the network has, not just this node's replication slice. Used for backup / mirror nodes and is required to make use of `OPENAUDIO_ARCHIVE_STORAGE_DRIVER_URL`. Disk usage grows with the total network footprint.
 
-**`OPENAUDIO_ARCHIVE`** (default: `false`)
-_Run in archival mode: never prune blocks. Required if you want to serve historical chain queries below the default retain window. Disk usage grows linearly with chain height._
+**`OPENAUDIO_ARCHIVE`**  
+<small>default: `false`</small>  
+Run in archival mode: never prune blocks. Required if you want to serve historical chain queries below the default retain window. Disk usage grows linearly with chain height.
 
-**`OPENAUDIO_STATE_SYNC_SERVE_SNAPSHOTS`** (default: `false`)
-_Periodically produce CometBFT state-sync snapshots and serve them to bootstrapping peers. Turning this on helps the network — new nodes can sync from your snapshots instead of replaying from genesis — at the cost of extra disk for the retained snapshots (controlled by `OPENAUDIO_STATE_SYNC_KEEP`)._
+**`OPENAUDIO_STATE_SYNC_SERVE_SNAPSHOTS`**  
+<small>default: `false`</small>  
+Periodically produce CometBFT state-sync snapshots and serve them to bootstrapping peers. Turning this on helps the network — new nodes can sync from your snapshots instead of replaying from genesis — at the cost of extra disk for the retained snapshots (controlled by `OPENAUDIO_STATE_SYNC_KEEP`).
 
 ## Node registration
 
