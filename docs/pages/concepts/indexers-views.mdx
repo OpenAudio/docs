@@ -2,6 +2,159 @@
 
 # Indexers & Views
 
-Coming soon.
+The protocol itself stores transactions, not products. Validators keep an append-only log of signed transactions, replicate them, and reach consensus. They do **not** join data, compute aggregates, render feeds, or maintain anything resembling a queryable app database.
 
-In the meantime, refer to the [Audius API implementation](https://github.com/AudiusProject/api) or [audiusd ETL](https://github.com/AudiusProject/audiusd/tree/main/pkg/etl) package.
+That work, turning raw chain transactions into useful relational tables, materialized views, and feeds, is left to **indexers**. Anyone can run one.
+
+This page covers:
+
+- Why the split between chain and indexer exists
+- The bundled ETL package you can import directly in Go
+- A working example pointed at a public RPC
+- How to bootstrap from a published Postgres snapshot
+
+## Why the protocol does so little ETL
+
+Decoupling consensus from data shape is intentional:
+
+1. **Different consumers want different shapes.** A streaming app needs track-level feeds and trending lists. A label dashboard wants per-release sales rollups. A search service wants ngram indexes. Trying to bake one canonical schema into the protocol would either over-serve one consumer or under-serve all of them.
+
+2. **Schemas evolve faster than chains.** When a new feature ships (a new entity type, a new aggregation, a new derived view), the protocol shouldn't have to coordinate a hard fork to expose it. Indexers can iterate independently.
+
+3. **It keeps validator cost honest.** Validators only pay the consensus cost of accepting and ordering transactions. Whoever needs a particular view pays the indexing cost of producing it.
+
+4. **It keeps the protocol open.** Anyone can run an indexer with their own retention, normalization, and access rules, including private indexers for internal apps.
+
+The wire-protocol page covers what validators do agree on: [Entity Manager](/concepts/wire-protocol#entity-manager) messages and [DDEX](/concepts/wire-protocol#ddex) messages flowing through consensus. Mostly everything past that is an indexer's job.
+
+## The bundled ETL package
+
+[`github.com/OpenAudio/go-openaudio/pkg/etl`](https://github.com/OpenAudio/go-openaudio/tree/main/pkg/etl) is an optional, importable Go package that turns transactions into a Postgres schema used by audius.co. You can:
+
+- **Use it directly.** Import the package, point it at a Core RPC endpoint and a Postgres connection string, and it indexes blocks forever.
+- **Use it as a reference.** Read the handlers in [`pkg/etl/processors/entity_manager`](https://github.com/OpenAudio/go-openaudio/tree/main/pkg/etl/processors/entity_manager) to see exactly how each entity type maps from on-chain JSON metadata to relational rows, and build your own indexer in any language.
+
+### What it produces
+
+The schema is designed to be compatible with the Audius.co product experience. Tables include:
+
+- Core entities: `users`, `tracks`, `playlists`, `playlist_tracks`, `follows`, `saves`, `reposts`, `shares`, `comments`
+- Routing: `track_routes`, `playlist_routes`, `stems`, `remixes`
+- Notifications: `notification`, `notification_seen`
+- Commerce: `track_price_history`, `album_price_history`, `oauth_redirect_uris`
+- ETL bookkeeping: `etl_blocks`, `etl_plays`, `etl_manage_entities`, `core_indexed_blocks`
+
+The full schema lives under [`pkg/etl/db/sql/migrations`](https://github.com/OpenAudio/go-openaudio/tree/main/pkg/etl/db/sql/migrations). The package runs them automatically on first start, so you don't have to manage migrations separately unless you want to.
+
+## Run the example
+
+[`examples/etl`](https://github.com/OpenAudio/go-openaudio/tree/main/examples/etl) is a working ~80-line program that wires the package together. It takes a Core RPC URL and a Postgres connection string, runs all migrations, and indexes blocks.
+
+Start a local Postgres:
+
+```bash
+docker run -d --name etl-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=etl_local \
+  -p 5432:5432 \
+  postgres:17
+```
+
+Point the example at the public RPC and your local DB:
+
+```bash
+go run github.com/OpenAudio/go-openaudio/examples/etl@latest \
+  --rpc https://rpc.audius.co \
+  --db "postgres://postgres:postgres@localhost:5432/etl_local?sslmode=disable"
+```
+
+That's it. The indexer will run migrations, then start indexing from block 0 (or wherever it last left off, if you've run it before). Query the database however you'd like.
+
+### Using the package programmatically
+
+If you want more control, the example boils down to about a dozen lines:
+
+```go
+import (
+    etl "github.com/OpenAudio/go-openaudio/pkg/etl"
+    oapSdk "github.com/OpenAudio/go-openaudio/pkg/sdk"
+    "go.uber.org/zap"
+)
+
+func main() {
+    logger, _ := zap.NewProduction()
+
+    sdk := oapSdk.NewOpenAudioSDK("https://rpc.audius.co")
+
+    indexer := etl.New(sdk.Core, logger)
+    indexer.SetDBURL("postgres://postgres:postgres@localhost:5432/etl_local?sslmode=disable")
+
+    // Defaults: every entity type is indexed and all optional components
+    // (MV refresh, scheduled-release publisher, pg_notify listener) are on.
+    // To narrow indexing, call SetConfig with a custom Config:
+    //
+    //   types := []string{"User", "Track", "Playlist"}
+    //   indexer.SetConfig(etl.Config{DataTypes: &types})
+    //
+    // Or export OPENAUDIO_ETL_ENTITY_MANAGER_DATA_TYPES=User,Track,Playlist.
+
+    if err := indexer.Run(); err != nil {
+        logger.Fatal("indexer exited", zap.Error(err))
+    }
+}
+```
+
+Entity types are listed in [`handler.go`](https://github.com/OpenAudio/go-openaudio/blob/main/pkg/etl/processors/entity_manager/handler.go) (`User`, `Track`, `Playlist`, `Follow`, `Save`, `Repost`, `Comment`, `Grant`, `DeveloperApp`, and others).
+
+Other config knobs:
+
+| Field | Default | Effect |
+|---|---|---|
+| `EnableMaterializedViewRefresh` | `true` | Periodic refresh of dashboard MVs |
+| `EnableScheduledReleases` | `true` | Publishes scheduled tracks/albums when their release_date passes |
+| `EnablePgNotifyListener` | `true` | `LISTEN/NOTIFY` pubsub for new blocks and plays |
+
+## Bootstrap from a published snapshot
+
+Indexing the full chain from genesis takes time. For most use cases, especially if you just want a working app DB to develop against, you can restore from a published snapshot and start indexing from there. Audius publishes a fresh dump of its production database here:
+
+```
+https://audius-pgdump.s3.us-west-2.amazonaws.com/discProvProduction.dump
+```
+
+This is a `pg_dump --format=custom` archive. Restore it into an empty database:
+
+```bash
+# Create the target DB
+createdb etl_local
+
+# Restore the snapshot. Expect tens of GB and several minutes.
+curl -fL -o discProvProduction.dump \
+  https://audius-pgdump.s3.us-west-2.amazonaws.com/discProvProduction.dump
+
+pg_restore \
+  --dbname etl_local \
+  --no-owner --no-privileges \
+  --jobs 4 \
+  discProvProduction.dump
+```
+
+Now point the ETL example at the same database. Migrations are idempotent (every `CREATE` uses `IF NOT EXISTS` and enums are guarded against duplicates), so it's fine to let them run on top of the snapshot. They'll only add the tables and columns the snapshot doesn't already have.
+
+```bash
+go run github.com/OpenAudio/go-openaudio/examples/etl@latest \
+  --rpc https://rpc.audius.co \
+  --db "postgres://postgres:postgres@localhost:5432/etl_local?sslmode=disable"
+```
+
+The indexer reads the most recently indexed block out of the snapshot and picks up from there. Within a few minutes you'll have a database that matches the live network.
+
+## Building your own indexer
+
+If the bundled package isn't a fit (different language, different schema, different storage), the wire format is small enough that rolling your own is reasonable. You need three things:
+
+1. **Block subscription.** Any validator's Core RPC exposes a `GetBlock` stream. The published RPC at `rpc.audius.co` works for testing.
+2. **Transaction decoding.** Use the `corev1` protobuf definitions to pull `ManageEntityLegacy` (and other) transactions out of each block.
+3. **Application logic.** Walk the entity type / action pairs and write whatever you want into your store.
+
+The handlers in [`pkg/etl/processors/entity_manager`](https://github.com/OpenAudio/go-openaudio/tree/main/pkg/etl/processors/entity_manager) are organized one file per (entity type, action) pair. Read `track_create.go` or `social_follow.go` and you'll have a complete picture of what one entity needs to do.
