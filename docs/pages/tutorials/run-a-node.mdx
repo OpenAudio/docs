@@ -78,6 +78,7 @@ services:
   my-node:
     image: openaudio/go-openaudio:stable
     container_name: my-node
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
@@ -87,14 +88,26 @@ services:
       - 443:443
       - 26656:26656
 
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
+  # Hourly auto-upgrade: pulls the latest :stable image and restarts my-node
+  # only when the image actually changes. Built on Docker's official CLI image,
+  # so there is no third-party dependency to maintain, and scoped to `my-node`
+  # so it never recreates itself.
+  updater:
+    image: docker:cli
+    container_name: updater
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --cleanup --interval 3600 my-node
+      - /root:/root:ro
+    working_dir: /root
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while true; do docker compose pull -q my-node && docker compose up -d my-node && docker image prune -f; sleep 3600; done"
 ```
+
+:::note
+The `updater` runs `docker compose` against your project, so this example assumes your `docker-compose.yml` and `.env` live in `/root` (matching the data path above). If you keep them elsewhere, change both the `/root:/root:ro` volume and `working_dir` to that directory.
+:::
 
 **4. Run your node**
 
