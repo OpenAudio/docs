@@ -88,10 +88,6 @@ services:
       - 443:443
       - 26656:26656
 
-  # Hourly auto-upgrade: pulls the latest :stable image and restarts my-node
-  # only when the image actually changes. Built on Docker's official CLI image,
-  # so there is no third-party dependency to maintain, and scoped to `my-node`
-  # so it never recreates itself.
   updater:
     image: docker:cli
     container_name: updater
